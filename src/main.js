@@ -5,6 +5,7 @@ import { createLevel } from './world/createLevel.js';
 import { createPlayer } from './player/createPlayer.js';
 import { createCoins } from './world/createCoins.js';
 import { createHud } from './ui/createHud.js';
+import { createEnemies } from './enemies/createEnemies.js';
 
 const app = document.querySelector('#app');
 
@@ -18,6 +19,7 @@ const { scene, camera, renderer } = createScene(document.querySelector('#game'))
 const { platforms } = createLevel(scene);
 const player = createPlayer(scene, platforms);
 const coinSystem = createCoins(scene);
+const enemySystem = createEnemies(scene);
 const hud = createHud(document.querySelector('.game-shell'));
 const clock = new THREE.Clock();
 const state = { score: 0, coins: 0, lives: 3 };
@@ -28,6 +30,7 @@ renderer.setAnimationLoop(() => {
   const elapsed = clock.elapsedTime;
   const { fell } = player.update(delta);
   if (fell) player.reset();
+  enemySystem.update(delta, elapsed);
 
   const coinsCollected = coinSystem.update(elapsed, player.getBounds());
   if (coinsCollected) {
