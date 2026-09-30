@@ -31,6 +31,11 @@ renderer.setAnimationLoop(() => {
   const { fell } = player.update(delta);
   if (fell) player.reset();
   enemySystem.update(delta, elapsed);
+  const enemyContact = enemySystem.checkPlayerCollision(player.getBounds(), player.velocity);
+  if (enemyContact.stomped) {
+    state.score += enemyContact.stomped * 250;
+    hud.update(state);
+  }
 
   const coinsCollected = coinSystem.update(elapsed, player.getBounds());
   if (coinsCollected) {

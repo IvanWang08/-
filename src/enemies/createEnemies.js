@@ -51,12 +51,14 @@ export function createEnemies(scene) {
       speed: 1.6 + (index % 3) * 0.2,
       defeated: false,
       fallSpeed: 0,
+      contactCooldown: 0,
     };
   });
 
   function update(delta, elapsed) {
     enemies.forEach((enemy, index) => {
       if (!enemy.mesh.visible) return;
+      enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
       if (enemy.defeated) {
         enemy.fallSpeed -= 24 * delta;
         enemy.mesh.position.y += enemy.fallSpeed * delta;
@@ -84,8 +86,43 @@ export function createEnemies(scene) {
       enemy.mesh.visible = true;
       enemy.defeated = false;
       enemy.fallSpeed = 0;
+      enemy.contactCooldown = 0;
     });
   }
 
-  return { enemies, update, reset };
+  function checkPlayerCollision(playerBounds, playerVelocity) {
+    let stomped = 0;
+    let hit = false;
+
+    enemies.forEach((enemy) => {
+      if (!enemy.mesh.visible || enemy.defeated || enemy.contactCooldown > 0) return;
+      const minX = enemy.mesh.position.x - 0.48;
+      const maxX = enemy.mesh.position.x + 0.48;
+      const minY = enemy.mesh.position.y;
+      const maxY = enemy.mesh.position.y + 0.9;
+      const overlaps = playerBounds.maxX > minX
+        && playerBounds.minX < maxX
+        && playerBounds.maxY > minY
+        && playerBounds.minY < maxY;
+      if (!overlaps) return;
+
+      const landingFromAbove = playerVelocity.y < -1.2 && playerBounds.minY > minY + 0.42;
+      if (landingFromAbove) {
+        enemy.defeated = true;
+        enemy.fallSpeed = 3.5;
+        playerVelocity.y = 8.2;
+        stomped += 1;
+      } else {
+        enemy.contactCooldown = 1.25;
+        const knockDirection = playerBounds.minX < enemy.mesh.position.x ? -1 : 1;
+        playerVelocity.x = knockDirection * 8;
+        playerVelocity.y = 5.5;
+        hit = true;
+      }
+    });
+
+    return { stomped, hit };
+  }
+
+  return { enemies, update, reset, checkPlayerCollision };
 }
