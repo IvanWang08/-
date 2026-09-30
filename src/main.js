@@ -24,8 +24,9 @@ const coinSystem = createCoins(scene);
 const enemySystem = createEnemies(scene);
 const goal = createGoal(scene);
 const hud = createHud(document.querySelector('.game-shell'));
-const clock = new THREE.Clock();
 const state = { score: 0, coins: 0, lives: 3, status: 'playing' };
+let previousTime = performance.now();
+let elapsed = 0;
 hud.update(state);
 
 function restartGame() {
@@ -55,9 +56,10 @@ function loseLife() {
   player.reset();
 }
 
-renderer.setAnimationLoop(() => {
-  const delta = Math.min(clock.getDelta(), 1 / 30);
-  const elapsed = clock.elapsedTime;
+renderer.setAnimationLoop((time) => {
+  const delta = Math.min((time - previousTime) / 1000, 1 / 30);
+  previousTime = time;
+  elapsed += delta;
   if (state.status !== 'playing') {
     renderer.render(scene, camera);
     return;
