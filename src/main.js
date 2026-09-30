@@ -7,6 +7,7 @@ import { createCoins } from './world/createCoins.js';
 import { createHud } from './ui/createHud.js';
 import { createEnemies } from './enemies/createEnemies.js';
 import { createOverlay } from './ui/createOverlay.js';
+import { createGoal } from './world/createGoal.js';
 
 const app = document.querySelector('#app');
 
@@ -21,6 +22,7 @@ const { platforms } = createLevel(scene);
 const player = createPlayer(scene, platforms);
 const coinSystem = createCoins(scene);
 const enemySystem = createEnemies(scene);
+const goal = createGoal(scene);
 const hud = createHud(document.querySelector('.game-shell'));
 const clock = new THREE.Clock();
 const state = { score: 0, coins: 0, lives: 3, status: 'playing' };
@@ -64,12 +66,20 @@ renderer.setAnimationLoop(() => {
   const { fell } = player.update(delta);
   if (fell) loseLife();
   enemySystem.update(delta, elapsed);
+  goal.update(elapsed);
   const enemyContact = enemySystem.checkPlayerCollision(player.getBounds(), player.velocity);
   if (enemyContact.stomped) {
     state.score += enemyContact.stomped * 250;
     hud.update(state);
   }
   if (enemyContact.hit) loseLife();
+
+  if (state.status === 'playing' && goal.reached(player.getBounds())) {
+    state.status = 'won';
+    state.score += 1000 + state.lives * 200;
+    hud.update(state);
+    overlay.showWin(state.score);
+  }
 
   const coinsCollected = coinSystem.update(elapsed, player.getBounds());
   if (coinsCollected) {

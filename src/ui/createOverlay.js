@@ -29,6 +29,12 @@ export function createOverlay(root, onRestart) {
       overlay.classList.remove('is-hidden');
       overlay.querySelector('button').focus();
     },
+    showWin(score) {
+      title.textContent = 'COURSE CLEAR!';
+      message.textContent = '旗杆已到达，漂亮的一局！';
+      finalScore.textContent = String(score).padStart(6, '0');
+      overlay.classList.remove('is-hidden');
+      overlay.querySelector('button').focus();
+    },
   };
 }
-
