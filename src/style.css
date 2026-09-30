@@ -1,0 +1,25 @@
+:root {
+  font-family: "Trebuchet MS", "Microsoft YaHei", sans-serif;
+  color: #fff;
+  background: #59bfff;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body { background: #59bfff; }
+
+.game-shell, #game {
+  width: 100%;
+  height: 100%;
+}
+
+canvas { display: block; }
+
