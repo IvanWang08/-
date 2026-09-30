@@ -1,5 +1,6 @@
 import './style.css';
 import { createScene } from './scene/createScene.js';
+import { createLevel } from './world/createLevel.js';
 
 const app = document.querySelector('#app');
 
@@ -10,6 +11,7 @@ app.innerHTML = `
 `;
 
 const { scene, camera, renderer } = createScene(document.querySelector('#game'));
+createLevel(scene);
 
 renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
