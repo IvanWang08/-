@@ -23,3 +23,49 @@ body { background: #59bfff; }
 
 canvas { display: block; }
 
+.hud {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem 1.5rem;
+  align-items: center;
+  padding: 1rem clamp(1rem, 3vw, 2.5rem);
+  color: white;
+  font-size: clamp(0.875rem, 1.35vw, 1.1rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 0 #44220b, 0 3px 7px rgb(0 0 0 / 45%);
+  pointer-events: none;
+}
+
+.brand, .stats { display: flex; align-items: center; gap: clamp(0.75rem, 2.5vw, 2.5rem); }
+.brand-mark {
+  display: grid;
+  width: 2.25rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 0.18rem solid white;
+  border-radius: 50%;
+  background: #e4322b;
+}
+.stats strong { margin-left: 0.35rem; color: #ffe353; }
+.controls {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding: 0.42rem 0.8rem;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: 999px;
+  background: rgb(23 64 101 / 38%);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(5px);
+}
+
+@media (max-width: 700px) {
+  .hud { grid-template-columns: 1fr; }
+  .brand { display: none; }
+  .stats { justify-content: space-between; gap: 0.45rem; }
+  .controls { font-size: 0.7rem; }
+}
