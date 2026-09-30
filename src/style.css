@@ -69,3 +69,49 @@ canvas { display: block; }
   .stats { justify-content: space-between; gap: 0.45rem; }
   .controls { font-size: 0.7rem; }
 }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgb(6 21 38 / 58%);
+  backdrop-filter: blur(7px);
+  transition: opacity 180ms ease;
+}
+
+.overlay.is-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+
+.overlay-card {
+  width: min(30rem, 100%);
+  padding: clamp(2rem, 6vw, 3.5rem);
+  border: 0.35rem solid #fff;
+  border-radius: 1.25rem;
+  background: #e6382f;
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 1rem 0 #8e211c, 0 1.5rem 3rem rgb(0 0 0 / 35%);
+}
+
+.overlay-card .eyebrow { margin: 0 0 0.6rem; font-weight: 900; letter-spacing: 0.16em; }
+.overlay-card h1 { margin: 0; font-size: clamp(2.5rem, 10vw, 5rem); line-height: 0.95; text-shadow: 0 0.12em 0 #8e211c; }
+.overlay-card p { font-size: 1rem; }
+.final-score { margin: 1.4rem 0; font-size: 1.15rem; font-weight: 900; letter-spacing: 0.08em; }
+.final-score strong { color: #ffe353; }
+.overlay-card button {
+  min-height: 3rem;
+  padding: 0.7rem 1.1rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #8e211c;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 0.28rem 0 #e7cfcf;
+}
+.overlay-card button:hover { transform: translateY(-2px); }
+.overlay-card button:focus-visible { outline: 0.22rem solid #ffe353; outline-offset: 0.3rem; }
+kbd { padding: 0.12rem 0.35rem; border-radius: 0.25rem; background: #f1dfdf; }
