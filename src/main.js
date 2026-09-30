@@ -1,4 +1,5 @@
 import './style.css';
+import { createScene } from './scene/createScene.js';
 
 const app = document.querySelector('#app');
 
@@ -8,3 +9,8 @@ app.innerHTML = `
   </main>
 `;
 
+const { scene, camera, renderer } = createScene(document.querySelector('#game'));
+
+renderer.setAnimationLoop(() => {
+  renderer.render(scene, camera);
+});
