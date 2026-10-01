@@ -37,6 +37,11 @@ export function createPlayerView(scene) {
     const arm=new THREE.Group();arm.position.set(side*.4,1.12,0);root.add(arm);arms.push(arm);
     mesh(cylinder,materials.redDark,arm,[0,-.22,0],[.13,.48,.13]);
   }
+  const staffPivot=new THREE.Group();staffPivot.position.set(.34,1.08,.22);root.add(staffPivot);
+  const staff=mesh(cylinder,materials.gold,staffPivot,[.75,0,0],[.075,2.75,.075]);staff.rotation.z=Math.PI/2;
+  for(const x of [-.48,1.98]){
+    const band=mesh(cylinder,materials.redDark,staffPivot,[x,0,0],[.102,.13,.102]);band.rotation.z=Math.PI/2;
+  }
   let squash=0;
   function update(player,time,event={}) {
     if(event.stomp)squash=.12;
@@ -55,6 +60,10 @@ export function createPlayerView(scene) {
     torso.rotation.y=Math.sin(time*2)*.012;
     head.rotation.y=Math.sin(time*1.7)*.02;
     cap.rotation.z=Math.sin(time*2.3)*.01;
+    const swing=player.attackTime>0?1-player.attackTime/.24:0;
+    staffPivot.rotation.z=player.attackTime>0?1.25-swing*2.65:-.3;
+    staffPivot.rotation.x=player.attackTime>0?Math.sin(swing*Math.PI)*.38:0;
+    staffPivot.position.y=1.08+Math.sin(swing*Math.PI)*.15;
   }
   return {root,update,dispose(){scene.remove(root);root.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}};
 }
