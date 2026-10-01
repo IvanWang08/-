@@ -1,7 +1,7 @@
 {
-  "name": "super-mario-three-js-v0-1",
+  "name": "super-mario-three-js",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
