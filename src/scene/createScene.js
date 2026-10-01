@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 
-export const CAMERA_LOCK = Object.freeze({ fov:55, near:.1, far:105, offsetX:0, offsetY:7.6, offsetZ:22, leadX:5.1, pitchDegrees:19.1 });
-const desiredOffset = new THREE.Vector3(CAMERA_LOCK.offsetX, CAMERA_LOCK.offsetY, CAMERA_LOCK.offsetZ);
-const desiredTarget = new THREE.Vector3();
+export const CAMERA_LOCK = Object.freeze({ fov:55, near:.1, far:105, offsetX:0, offsetY:2.8, offsetZ:22, leadX:12.5, pitchDegrees:19.1 });
+const desiredPosition = new THREE.Vector3();
 const shakeOffset = new THREE.Vector3();
 
 export function createScene(container) {
@@ -10,7 +9,8 @@ export function createScene(container) {
   scene.background = new THREE.Color(0x9fd8ee);
   scene.fog = new THREE.FogExp2(0xc9e1df, 0.0125);
   const camera = new THREE.PerspectiveCamera(CAMERA_LOCK.fov, 1, CAMERA_LOCK.near, CAMERA_LOCK.far);
-  camera.position.copy(desiredOffset).add(new THREE.Vector3(3, 1.1, 0));
+  camera.position.set(3 + CAMERA_LOCK.leadX, 1.1 + CAMERA_LOCK.offsetY, CAMERA_LOCK.offsetZ);
+  camera.rotation.set(THREE.MathUtils.degToRad(-CAMERA_LOCK.pitchDegrees),0,0);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x9fd8ee);
@@ -62,19 +62,19 @@ export function createScene(container) {
     if(options.snap) trackedY=actorCenter;
     else if(actorCenter>trackedY+1.25)trackedY=actorCenter-1.25;
     else if(actorCenter<trackedY-1.25)trackedY=actorCenter+1.25;
-    desiredTarget.set(player.x + CAMERA_LOCK.leadX, trackedY, 0);
-    const destination = desiredTarget.clone().add(desiredOffset);
-    // Colliders end at z ±1.6 while the camera stays at z=14; the fixed view ray
-    // therefore clears walls and this clamp keeps the lens above every roof.
-    destination.y = Math.max(destination.y, 7.8);
+    desiredPosition.set(player.x + CAMERA_LOCK.leadX, trackedY + CAMERA_LOCK.offsetY, CAMERA_LOCK.offsetZ);
+    // Colliders end at z ±1.6 while the lens stays at z=22, safely behind every
+    // wall; the height clamp also prevents a low checkpoint from dragging it down.
+    desiredPosition.y = Math.max(desiredPosition.y, 3.35);
     const smoothing = options.snap ? 1 : 1 - Math.exp(-dt * 4.6);
-    camera.position.lerp(destination, smoothing);
+    camera.position.lerp(desiredPosition, smoothing);
     if (shake > 0) {
       const strength = shake * shake;
       shakeOffset.set(Math.sin(performance.now() * .073), Math.cos(performance.now() * .091), 0).multiplyScalar(strength * .14);
       camera.position.add(shakeOffset);
     }
-    camera.lookAt(desiredTarget);
+    // Reassert the immutable pose every frame: only translation may change.
+    camera.rotation.set(THREE.MathUtils.degToRad(-CAMERA_LOCK.pitchDegrees),0,0);
     sky.position.set(player.x,4,0);
     sun.position.set(player.x - 12, player.y + 23, 12);
     sun.target.position.set(player.x + 4, player.y, 0);
