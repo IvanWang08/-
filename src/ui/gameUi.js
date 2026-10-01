@@ -2,7 +2,7 @@ export function createGameUi(root, callbacks={}) {
   const layer=document.createElement('div');layer.className='game-ui';
   layer.innerHTML=`
     <header class="hud-v2" aria-label="游戏状态">
-      <div class="seal">玛</div><div class="region"><small>当前地域</small><strong data-region>青竹林</strong></div>
+      <div class="seal">玛</div><div class="region"><small>山河远行 · v0.3</small><strong data-region>青竹林</strong></div>
       <div class="progress"><i data-progress></i><span data-distance>0 / 420</span></div>
       <div class="meters"><span>得分 <b data-score>000000</b></span><span>铜钱 <b data-coins>00</b></span><span>命数 <b data-lives>三</b></span></div>
       <div class="fps" data-fps hidden>FPS 60 · 0 DRAW</div>
@@ -11,7 +11,7 @@ export function createGameUi(root, callbacks={}) {
     <section class="game-modal" data-modal aria-live="polite">
       <div class="scroll-card"><p class="chapter">第一卷 · 山河远行</p><h1 data-modal-title>云游四境</h1>
         <p data-modal-copy>越竹林，登村檐，渡水桥，抵达宫门。</p>
-        <div class="controls-grid"><span><kbd>A D</kbd> / <kbd>← →</kbd> 行走</span><span><kbd>空格</kbd> 长短跳</span><span><kbd>S</kbd> / <kbd>↓</kbd> 入水管</span><span><kbd>Esc</kbd> 暂停 · <kbd>F</kbd> 帧率</span></div>
+        <div class="controls-grid"><span><kbd>A D</kbd> / <kbd>← →</kbd> 行走</span><span><kbd>空格</kbd> 跳跃 / 空中二段跳</span><span><kbd>J</kbd> 金箍棒挥砍</span><span><kbd>Shift</kbd> / <kbd>K</kbd> 冲刺</span><span><kbd>S</kbd> / <kbd>↓</kbd> 入水管</span><span><kbd>Esc</kbd> 暂停 · <kbd>F</kbd> 帧率</span></div>
         <button type="button" data-action>启程</button><small>按 Enter 或空格开始</small>
       </div>
     </section>`;
