@@ -6,6 +6,7 @@ import {createPlayerView} from './player/playerView.js';
 import {Simulation} from './game/simulation.js';
 import {createGameUi} from './ui/gameUi.js';
 import {createEffects} from './scene/effects.js';
+import {createTrapView} from './world/trapView.js';
 import {DEFAULT_BINDINGS,controlState} from './game/controls.js';
 
 const app=document.querySelector('#app');
@@ -17,6 +18,7 @@ let simulation=new Simulation(level);
 const world=createWorldView(stage.scene,level);
 const hero=createPlayerView(stage.scene);
 const effects=createEffects(stage.scene);
+const trapView=createTrapView(stage.scene,level);
 const keys=new Set(),pressed=new Set();
 let showFps=false,visual={shake:0,stomp:false},lastTime=performance.now(),fpsClock=0,fpsFrames=0,fps=60;
 
@@ -65,6 +67,7 @@ stage.renderer.setAnimationLoop(now=>{
   simulation.advance(dt,inputSnapshot());
   handleEvents(simulation.drainEvents());
   world.update(simulation,dt,simulation.elapsed);
+  trapView.update(simulation,simulation.elapsed);
   hero.update(simulation.player,simulation.elapsed,{stomp:visual.stomp});visual.stomp=false;
   if(simulation.player.dashTime>0)effects.trail(simulation.player.x,simulation.player.y,simulation.player.facing);
   effects.update(dt);
