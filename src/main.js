@@ -78,6 +78,9 @@ stage.renderer.setAnimationLoop(now=>{
   ui.update(simulation,{fps,showFps,drawCalls:stage.renderer.info.render.calls});
 });
 
-if(import.meta.env.DEV){
-  window.__marioDebug={get snapshot(){return {status:simulation.status,player:{...simulation.player},score:simulation.score,lives:simulation.lives,coins:simulation.coinsCollected,region:simulation.region.id,fps,drawCalls:stage.renderer.info.render.calls};}};
+if(import.meta.env.DEV||new URLSearchParams(location.search).has('debug')){
+  window.__marioDebug={get snapshot(){
+    const projected=hero.root.position.clone().add({x:0,y:simulation.player.h*.5,z:0}).project(stage.camera);
+    return {status:simulation.status,player:{...simulation.player},playerNdc:{x:projected.x,y:projected.y},camera:{x:stage.camera.position.x,y:stage.camera.position.y,z:stage.camera.position.z},score:simulation.score,lives:simulation.lives,coins:simulation.coinsCollected,region:simulation.region.id,fps,drawCalls:stage.renderer.info.render.calls};
+  }};
 }

@@ -18,11 +18,29 @@ export function journeyInput(sim, driver) {
     return b.left > p.x + .2 && b.left < p.x + 2.6 && b.top > p.y + .33 && b.bottom < p.y + p.h;
   });
   const enemy = sim.enemies.some(e => e.alive && e.x > p.x - .2 && e.x < p.x + 3.8 && e.y + e.h > p.y - .2 && e.y < p.y + 2.8);
+  const danger = sim.traps.some(t => {
+    if (t.preview) return false;
+    const positions = [t.x, t.currentX ?? t.x];
+    return positions.some(x => x > p.x - .6 && x < p.x + 6.2);
+  });
+  const dashDanger = sim.traps.some(t => !t.preview &&
+    (t.currentX ?? t.x) > p.x - .25 && (t.currentX ?? t.x) < p.x + 2.8);
+  const waitForCycle = sim.traps.some(t => !t.preview && t.active &&
+    ['flame', 'retractingSpikes'].includes(t.type) && t.x > p.x + .6 && t.x < p.x + 3.1) &&
+    p.dashCooldown > 0;
+  const attackTarget = sim.enemies.some(e => e.alive && e.x > p.x - .1 && e.x < p.x + 2);
   const blocked = Math.abs(p.x - driver.lastX) < .0001 && driver.frames > 20;
-  const jump = p.grounded && (ledge || obstruction || enemy || blocked);
+  const jump = (p.grounded && (ledge || obstruction || enemy || danger || blocked)) ||
+    (!p.grounded && dashDanger && p.jumpsUsed === 1 && p.vy < 0);
   driver.lastX = p.x;
   driver.frames++;
-  return { move: 1, jumpHeld: true, jumpPressed: jump };
+  return {
+    move: waitForCycle ? 0 : 1,
+    jumpHeld: true,
+    jumpPressed: jump,
+    dashPressed: dashDanger && p.dashCooldown <= 0,
+    attackPressed: attackTarget && p.attackCooldown <= 0,
+  };
 }
 
 test('level has four large regions, high routes, paired pipes and a secret in each region', () => {
@@ -45,6 +63,7 @@ for (let run = 1; run <= 3; run++) {
     let highestX = 0;
     let totalFrames = 0;
     let hurt = 0;
+    const hurtReasons = [];
     let jumps = 0;
     while (sim.status === 'playing' && totalFrames < 120 * 160) {
       const input = journeyInput(sim, driver);
@@ -53,7 +72,7 @@ for (let run = 1; run <= 3; run++) {
       highestX = Math.max(highestX, sim.player.x);
       regions.add(sim.region.id);
       for (const event of sim.drainEvents()) {
-        if (event.type === 'hurt') hurt++;
+        if (event.type === 'hurt') { hurt++; hurtReasons.push(event.reason); }
         if (event.type === 'jump') jumps++;
       }
       assert.ok(Number.isFinite(sim.player.x) && Number.isFinite(sim.player.y));
@@ -62,7 +81,7 @@ for (let run = 1; run <= 3; run++) {
           `frame ${totalFrames}, x=${sim.player.x.toFixed(2)}, y=${sim.player.y.toFixed(2)} intersects ${s.id}`);
       }
     }
-    assert.equal(sim.status, 'won', `ended ${sim.status} x=${sim.player.x.toFixed(2)} max=${highestX.toFixed(2)} hurt=${hurt} t=${(totalFrames / 120).toFixed(1)}`);
+    assert.equal(sim.status, 'won', `ended ${sim.status} x=${sim.player.x.toFixed(2)} max=${highestX.toFixed(2)} hurt=${hurt} reasons=${hurtReasons.join(',')} t=${(totalFrames / 120).toFixed(1)}`);
     assert.equal(regions.size, 4);
     assert.equal(sim.checkpointIndex, 3);
     assert.ok(highestX >= 411);
