@@ -9,12 +9,13 @@ export class Simulation {
     this.coins=this.level.coins.map(c=>({...c,collected:false,revealed:!c.hidden}));
     this.enemies=this.level.enemies.map(e=>({...e,maxHp:e.hp,alive:true,direction:-1,vx:0,vy:0,grounded:false,squash:0,stompCooldown:0}));
     this.mechanisms=this.level.mechanisms.map(m=>({...m,cooldown:0}));
-    this.player={x:3,y:.02,w:.8,h:1.65,vx:0,vy:0,grounded:false,supportId:null,facing:1,invulnerable:0};
+    this.player={x:3,y:.02,w:.8,h:1.65,vx:0,vy:0,grounded:false,supportId:null,facing:1,invulnerable:0,
+      jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0};
     this.status='ready'; this.score=0; this.coinsCollected=0; this.lives=3;
     this.elapsed=0; this.checkpointIndex=0; this.region=this.level.regions[0];
     this.events=[]; this.secrets=new Set(); this.coyote=0; this.jumpBuffer=0;
-    this.pipeCooldown=0; this.springCooldown=0; this.accumulator=0;
-    this.pendingJump=false; this.pendingInteract=false;
+    this.pipeCooldown=0; this.springCooldown=0; this.accumulator=0;this.hitStop=0;
+    this.pendingJump=false; this.pendingInteract=false;this.pendingAttack=false;this.pendingDash=false;
   }
   start() { if(this.status==='ready') { this.status='playing'; this.emit('region',{name:this.region.name}); } }
   emit(type,data={}) { this.events.push({type,...data}); }
@@ -24,10 +25,12 @@ export class Simulation {
     if(this.status!=='playing') { this.accumulator=0; return; }
     this.pendingJump ||= !!input.jumpPressed;
     this.pendingInteract ||= !!input.interactPressed;
+    this.pendingAttack ||= !!input.attackPressed;
+    this.pendingDash ||= !!input.dashPressed;
     this.accumulator+=clamp(frameDt,0,.1);
     while(this.accumulator+1e-10>=FIXED_DT) {
-      this.step(FIXED_DT,{...input,jumpPressed:this.pendingJump,interactPressed:this.pendingInteract});
-      this.pendingJump=false; this.pendingInteract=false;
+      this.step(FIXED_DT,{...input,jumpPressed:this.pendingJump,interactPressed:this.pendingInteract,attackPressed:this.pendingAttack,dashPressed:this.pendingDash});
+      this.pendingJump=false; this.pendingInteract=false;this.pendingAttack=false;this.pendingDash=false;
       this.accumulator-=FIXED_DT;
       if(this.status!=='playing') { this.accumulator=0; break; }
     }
@@ -85,24 +88,33 @@ export class Simulation {
   }
   step(dt,input={}) {
     if(this.status!=='playing')return;
+    if(this.hitStop>0){this.hitStop=Math.max(0,this.hitStop-dt);return;}
     this.elapsed+=dt;
     const p=this.player;
     const solids=this.localSolids();
     p.invulnerable=Math.max(0,p.invulnerable-dt);
+    p.dashCooldown=Math.max(0,p.dashCooldown-dt);p.dashTime=Math.max(0,p.dashTime-dt);
+    p.attackCooldown=Math.max(0,p.attackCooldown-dt);p.attackTime=Math.max(0,p.attackTime-dt);
     this.pipeCooldown=Math.max(0,this.pipeCooldown-dt);
     this.springCooldown=Math.max(0,this.springCooldown-dt);
     this.updatePlatforms(dt,solids);
     const support=findSupport(p,solids);
     p.grounded=!!support && p.vy<=0;
     p.supportId=p.grounded?support.id:null;
+    if(p.grounded)p.jumpsUsed=0;
     this.coyote=p.grounded?.1:Math.max(0,this.coyote-dt);
     this.jumpBuffer=input.jumpPressed?.13:Math.max(0,this.jumpBuffer-dt);
     const direction=clamp(input.move??0,-1,1);
-    p.vx=approach(p.vx,direction*8.2,(p.grounded?62:37)*dt);
+    if(input.dashPressed && p.dashCooldown<=0){p.dashTime=.2;p.dashCooldown=1;p.invulnerable=Math.max(p.invulnerable,.26);p.vy=Math.max(p.vy,0);this.emit('dash',{x:p.x,y:p.y+1,facing:p.facing});}
+    if(input.attackPressed && p.attackCooldown<=0){p.attackTime=.24;p.attackCooldown=.4;this.attack();}
+    p.vx=p.dashTime>0?p.facing*18:approach(p.vx,direction*8.2,(p.grounded?62:37)*dt);
     if(direction)p.facing=Math.sign(direction);
     if(this.jumpBuffer>0 && this.coyote>0) {
       p.vy=12; p.grounded=false; p.supportId=null;
-      this.coyote=0;this.jumpBuffer=0;this.emit('jump');
+      p.jumpsUsed=1;this.coyote=0;this.jumpBuffer=0;this.emit('jump',{x:p.x,y:p.y});
+    } else if(input.jumpPressed && !p.grounded && p.jumpsUsed<2) {
+      p.vy=9.6;p.jumpsUsed=2;this.jumpBuffer=0;this.springCooldown=.2;
+      this.emit('doubleJump',{x:p.x,y:p.y+.1});
     }
     if(!input.jumpHeld && p.vy>6 && this.springCooldown<=0) p.vy=6;
     p.vy-= (p.vy>0?25:21)*dt;
@@ -144,7 +156,8 @@ export class Simulation {
     const p=this.player;
     for(const e of this.enemies) {
       e.squash=Math.max(0,e.squash-dt);e.stompCooldown=Math.max(0,e.stompCooldown-dt);
-      if(!e.alive || Math.abs(e.x-p.x)>38)continue;
+      if(!e.alive){if(e.defeatTime>0){e.defeatTime-=dt;e.x+=e.knockVx*dt;e.y+=e.knockVy*dt;e.knockVy-=20*dt;}continue;}
+      if(Math.abs(e.x-p.x)>38)continue;
       const solids=this.localSolids(e.x);
       e.vx=e.direction*e.speed;
       e.vy=Math.max(-42,e.vy-21*dt);
@@ -164,13 +177,27 @@ export class Simulation {
       if(stomp && e.stompCooldown<=0) {
         p.y=b.top+.01;p.vy=10.2;p.grounded=false;p.supportId=null;
         this.springCooldown=.25;e.hp--;e.squash=.28;e.stompCooldown=.4;
-        if(e.hp<=0){e.alive=false;this.score+=e.elite?750:250;}
+        if(e.hp<=0){e.alive=false;e.defeatTime=.55;e.knockVx=0;e.knockVy=4;this.score+=e.elite?750:250;}
         else {e.direction=p.x<e.x?1:-1;this.score+=100;}
         this.emit('stomp',{x:e.x,y:b.top,elite:e.elite,hp:e.hp});
       } else if(overlaps(a,b) && p.invulnerable<=0 && e.stompCooldown<=0) {
         this.loseLife('enemy');return;
       }
     }
+  }
+  attack(){
+    const p=this.player;let hits=0;
+    for(const e of this.enemies){
+      if(!e.alive)continue;const dx=(e.x-p.x)*p.facing,dy=(e.y+e.h*.5)-(p.y+p.h*.55);
+      const distance=Math.hypot(dx,dy);
+      if(dx<-.2||dx>2.15||distance>2.2||Math.abs(dy)>1.75)continue;
+      e.hp--;e.stompCooldown=.38;e.squash=.3;hits++;
+      if(e.hp<=0){e.alive=false;e.defeatTime=.65;e.knockVx=p.facing*8;e.knockVy=8;this.score+=e.elite?750:250;}
+      else {e.direction=p.facing;e.x+=p.facing*.16;this.score+=100;}
+      this.emit('strike',{x:e.x,y:e.y+e.h*.65,elite:e.elite,hp:e.hp});
+    }
+    this.emit('attack',{x:p.x+p.facing*1.1,y:p.y+1,facing:p.facing,hit:hits>0});
+    if(hits){this.hitStop=.045;}
   }
   updateMechanisms(input) {
     const p=this.player;
