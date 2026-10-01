@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-const desiredOffset = new THREE.Vector3(-10, 18, 14);
+export const CAMERA_LOCK = Object.freeze({ fov:55, near:.1, far:105, offsetX:0, offsetY:7.6, offsetZ:22, leadX:5.1, pitchDegrees:19.1 });
+const desiredOffset = new THREE.Vector3(CAMERA_LOCK.offsetX, CAMERA_LOCK.offsetY, CAMERA_LOCK.offsetZ);
 const desiredTarget = new THREE.Vector3();
 const shakeOffset = new THREE.Vector3();
 
@@ -8,8 +9,8 @@ export function createScene(container) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa8b9ad);
   scene.fog = new THREE.FogExp2(0xa8b9ad, 0.0175);
-  const camera = new THREE.PerspectiveCamera(43, 1, 0.1, 130);
-  camera.position.copy(desiredOffset).add(new THREE.Vector3(3, 1.2, 0));
+  const camera = new THREE.PerspectiveCamera(CAMERA_LOCK.fov, 1, CAMERA_LOCK.near, CAMERA_LOCK.far);
+  camera.position.copy(desiredOffset).add(new THREE.Vector3(3, 1.1, 0));
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0xa8b9ad);
@@ -34,7 +35,7 @@ export function createScene(container) {
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
     camera.aspect = width / height;
-    camera.fov = camera.aspect < 0.8 ? 55 : 43;
+    camera.fov = camera.aspect < 0.8 ? 60 : CAMERA_LOCK.fov;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
@@ -42,16 +43,21 @@ export function createScene(container) {
   resize();
   window.addEventListener('resize', resize);
 
-  let shake = 0;
+  let shake = 0, trackedY = 1.1;
   function updateCamera(player, dt, options = {}) {
     if (options.shake) shake = Math.max(shake, options.shake);
     shake = Math.max(0, shake - dt * 2.7);
-    const lookAhead = THREE.MathUtils.clamp((player.vx || 0) * 0.5, -2.8, 4.2);
-    desiredTarget.set(player.x + lookAhead + 2.2, Math.max(1.8, player.y + 1.05), 0);
+    // Pose is immutable: input and facing never change yaw, pitch or roll.
+    // Only the target translates. A 1.25-unit vertical dead zone filters small hops.
+    const actorCenter = player.y + player.h * .5;
+    if(options.snap) trackedY=actorCenter;
+    else if(actorCenter>trackedY+1.25)trackedY=actorCenter-1.25;
+    else if(actorCenter<trackedY-1.25)trackedY=actorCenter+1.25;
+    desiredTarget.set(player.x + CAMERA_LOCK.leadX, trackedY, 0);
     const destination = desiredTarget.clone().add(desiredOffset);
     // Colliders end at z ±1.6 while the camera stays at z=14; the fixed view ray
     // therefore clears walls and this clamp keeps the lens above every roof.
-    destination.y = Math.max(destination.y, 12.5);
+    destination.y = Math.max(destination.y, 7.8);
     const smoothing = options.snap ? 1 : 1 - Math.exp(-dt * 4.6);
     camera.position.lerp(destination, smoothing);
     if (shake > 0) {
