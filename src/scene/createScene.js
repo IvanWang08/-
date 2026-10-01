@@ -7,23 +7,29 @@ const shakeOffset = new THREE.Vector3();
 
 export function createScene(container) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xa8b9ad);
-  scene.fog = new THREE.FogExp2(0xa8b9ad, 0.0175);
+  scene.background = new THREE.Color(0x9fd8ee);
+  scene.fog = new THREE.FogExp2(0xc9e1df, 0.0125);
   const camera = new THREE.PerspectiveCamera(CAMERA_LOCK.fov, 1, CAMERA_LOCK.near, CAMERA_LOCK.far);
   camera.position.copy(desiredOffset).add(new THREE.Vector3(3, 1.1, 0));
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setClearColor(0xa8b9ad);
+  renderer.setClearColor(0x9fd8ee);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.02;
+  renderer.toneMappingExposure = 1.26;
   container.appendChild(renderer.domElement);
 
-  scene.add(new THREE.HemisphereLight(0xa9c8c1, 0x9c7b50, 2.15));
-  const sun = new THREE.DirectionalLight(0xffd5a3, 3.7);
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(88,24,14),new THREE.ShaderMaterial({
+    side:THREE.BackSide,depthWrite:false,fog:false,
+    vertexShader:'varying vec3 vPos; void main(){vPos=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:'varying vec3 vPos; void main(){float h=clamp(normalize(vPos).y*.55+.48,0.,1.);vec3 warm=vec3(.98,.92,.76);vec3 cyan=vec3(.32,.72,.91);vec3 zenith=vec3(.18,.52,.82);vec3 c=mix(warm,cyan,smoothstep(.05,.55,h));c=mix(c,zenith,smoothstep(.62,1.,h));gl_FragColor=vec4(c,1.);}',
+  }));
+  sky.renderOrder=-10;scene.add(sky);
+  scene.add(new THREE.HemisphereLight(0xc8eeff, 0xc8955e, 3.25));
+  const sun = new THREE.DirectionalLight(0xffd49b, 4.3);
   sun.position.set(-12, 23, 12);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1536, 1536);
@@ -31,6 +37,8 @@ export function createScene(container) {
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.018;
   scene.add(sun, sun.target);
+  const fill = new THREE.DirectionalLight(0x8fd8ff, .95);
+  fill.position.set(8,10,16);scene.add(fill);
 
   function resize() {
     const width = container.clientWidth || window.innerWidth;
@@ -67,6 +75,7 @@ export function createScene(container) {
       camera.position.add(shakeOffset);
     }
     camera.lookAt(desiredTarget);
+    sky.position.set(player.x,4,0);
     sun.position.set(player.x - 12, player.y + 23, 12);
     sun.target.position.set(player.x + 4, player.y, 0);
     sun.target.updateMatrixWorld();
