@@ -25,7 +25,7 @@ export function createLevelData() {
   }
   // Short gaps on the low route; every section also offers a rewarded high route.
   const groundRuns = [[-8,47],[50,91],[94,142],[145,190],[193,218],
-    [221,243],[246,267],[270,292],[295,341],[344,380],[383,428]];
+    [221,243],[245,267],[269,292],[294,341],[344,380],[383,428]];
   groundRuns.forEach(([start,end], run) => {
     // Split long land masses so a single nearby chunk never loads the whole map.
     for (let x = start; x < end; x += 12) {
@@ -52,7 +52,7 @@ export function createLevelData() {
     for (let i = 0; i < 5; i++) coin(x + 7 + i, 4 + Math.sin(i / 4 * Math.PI), { hidden: true, secret: region.id });
     coin(x + 61, 3.6);
     coin(x + 79, 2.8);
-    enemies.push({ id:`goomba-${index}-1`, x:x+38,y:0,w:0.9,h:0.85,minX:x+31,maxX:x+44,speed:1.5+index*.15,hp:1,chunk:chunkAt(x+38) });
+    enemies.push({ id:`goomba-${index}-1`, x:x+51,y:0,w:0.9,h:0.85,minX:x+48,maxX:x+56,speed:1.5+index*.15,hp:1,chunk:chunkAt(x+51) });
     enemies.push({ id:`goomba-${index}-2`, x:x+85,y:0,w:0.9,h:0.85,minX:x+81,maxX:x+89,speed:1.7,hp:1,chunk:chunkAt(x+85) });
   });
   // Village attic: a pipe shortcut reaches a second hidden roof route.
