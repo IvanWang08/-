@@ -5,6 +5,7 @@ import {createWorldView} from './world/worldView.js';
 import {createPlayerView} from './player/playerView.js';
 import {Simulation} from './game/simulation.js';
 import {createGameUi} from './ui/gameUi.js';
+import {createEffects} from './scene/effects.js';
 
 const app=document.querySelector('#app');
 app.innerHTML='<main class="game-shell"><div id="game" aria-label="超级玛丽国风大地图游戏画面"></div></main>';
@@ -14,6 +15,7 @@ const level=createLevelData();
 let simulation=new Simulation(level);
 const world=createWorldView(stage.scene,level);
 const hero=createPlayerView(stage.scene);
+const effects=createEffects(stage.scene);
 const keys=new Set(),pressed=new Set();
 let showFps=false,visual={shake:0,stomp:false},lastTime=performance.now(),fpsClock=0,fpsFrames=0,fps=60;
 
@@ -55,6 +57,7 @@ function handleEvents(events){
     if(event.type==='land')visual.shake=Math.min(.8,event.impact/25);
     if(event.type==='hurt')visual.shake=1;
     if(event.type==='stomp'){visual.stomp=true;visual.shake=.45;}
+    if(['coin','stomp','hurt','secret','spring','pipe'].includes(event.type))effects.burst(event.x??simulation.player.x,event.y??simulation.player.y+1,event.type);
   }
 }
 
@@ -65,6 +68,7 @@ stage.renderer.setAnimationLoop(now=>{
   handleEvents(simulation.drainEvents());
   world.update(simulation,dt,simulation.elapsed);
   hero.update(simulation.player,simulation.elapsed,{stomp:visual.stomp});visual.stomp=false;
+  effects.update(dt);
   stage.updateCamera(simulation.player,dt,{shake:visual.shake});visual.shake=0;
   stage.renderer.render(stage.scene,stage.camera);
   fpsClock+=dt;fpsFrames++;
