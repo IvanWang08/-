@@ -9,6 +9,7 @@ export class Simulation {
     this.coins=this.level.coins.map(c=>({...c,collected:false,revealed:!c.hidden}));
     this.enemies=this.level.enemies.map(e=>({...e,maxHp:e.hp,alive:true,direction:-1,vx:0,vy:0,grounded:false,squash:0,stompCooldown:0}));
     this.mechanisms=this.level.mechanisms.map(m=>({...m,cooldown:0}));
+    this.traps=(this.level.traps||[]).map(t=>({...t,active:false,currentX:t.x,currentY:t.y,triggered:false,triggerTime:0}));
     this.player={x:3,y:.02,w:.8,h:1.65,vx:0,vy:0,grounded:false,supportId:null,facing:1,invulnerable:0,
       jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0};
     this.status='ready'; this.score=0; this.coinsCollected=0; this.lives=3;
@@ -50,6 +51,10 @@ export class Simulation {
     Object.assign(this.player,{x:cp.x,y:cp.y+.02,vx:0,vy:0,grounded:false,supportId:null,invulnerable:1.6});
     this.coyote=0;this.jumpBuffer=0;this.springCooldown=.3;this.pipeCooldown=.5;
     this.emit('respawn',{x:cp.x,name:cp.name});
+  }
+  damagePlayer(reason,source){
+    if(this.player.invulnerable>0||this.player.dashTime>0)return false;
+    this.loseLife(reason);if(source)this.emit('trapHit',{x:source.currentX??source.x,y:source.currentY??source.y,type:source.type});return true;
   }
   updatePlatforms(dt,solids) {
     const p=this.player;
@@ -105,10 +110,10 @@ export class Simulation {
     this.coyote=p.grounded?.1:Math.max(0,this.coyote-dt);
     this.jumpBuffer=input.jumpPressed?.13:Math.max(0,this.jumpBuffer-dt);
     const direction=clamp(input.move??0,-1,1);
+    if(direction)p.facing=Math.sign(direction);
     if(input.dashPressed && p.dashCooldown<=0){p.dashTime=.2;p.dashCooldown=1;p.invulnerable=Math.max(p.invulnerable,.26);p.vy=Math.max(p.vy,0);this.emit('dash',{x:p.x,y:p.y+1,facing:p.facing});}
     if(input.attackPressed && p.attackCooldown<=0){p.attackTime=.24;p.attackCooldown=.4;this.attack();}
     p.vx=p.dashTime>0?p.facing*18:approach(p.vx,direction*8.2,(p.grounded?62:37)*dt);
-    if(direction)p.facing=Math.sign(direction);
     if(this.jumpBuffer>0 && this.coyote>0) {
       p.vy=12; p.grounded=false; p.supportId=null;
       p.jumpsUsed=1;this.coyote=0;this.jumpBuffer=0;this.emit('jump',{x:p.x,y:p.y});
@@ -132,6 +137,8 @@ export class Simulation {
     if(p.y<-8 || (p.x>=200 && p.x<300 && p.y<-1.6)) {this.loseLife('fall');return;}
     this.updateEnemies(dt,previous);
     if(this.status!=='playing' || (previous.x!==p.x && p.invulnerable>1.59))return;
+    this.updateTraps(dt);
+    if(this.status!=='playing' || p.invulnerable>1.59)return;
     this.updateMechanisms(input);
     for(const coin of this.coins) {
       if(coin.collected || !coin.revealed)continue;
@@ -181,7 +188,7 @@ export class Simulation {
         else {e.direction=p.x<e.x?1:-1;this.score+=100;}
         this.emit('stomp',{x:e.x,y:b.top,elite:e.elite,hp:e.hp});
       } else if(overlaps(a,b) && p.invulnerable<=0 && e.stompCooldown<=0) {
-        this.loseLife('enemy');return;
+        this.damagePlayer('enemy',e);return;
       }
     }
   }
@@ -198,6 +205,29 @@ export class Simulation {
     }
     this.emit('attack',{x:p.x+p.facing*1.1,y:p.y+1,facing:p.facing,hit:hits>0});
     if(hits){this.hitStop=.045;}
+  }
+  updateTraps(dt){
+    const p=this.player,a=bounds(p),time=this.elapsed;
+    for(const t of this.traps){
+      const cycle=((time/t.period+(t.phase||0))%1+1)%1;t.active=false;t.currentX=t.x;t.currentY=t.y;
+      if(t.type==='spikes')t.active=true;
+      if(t.type==='retractingSpikes')t.active=cycle>.38&&cycle<.76;
+      if(t.type==='flame')t.active=cycle>.16&&cycle<.61;
+      if(t.type==='pendulum'){const angle=Math.sin(cycle*Math.PI*2)*1.05;t.currentX=t.x+Math.sin(angle)*(t.range||2.5);t.currentY=t.y-Math.cos(angle)*2.5;t.active=true;}
+      if(t.type==='blade'){t.currentX=t.x+Math.sin(cycle*Math.PI*2)*(t.range||1.6);t.active=true;}
+      if(t.type==='flyingBlade'){t.currentX=t.x+Math.sin(cycle*Math.PI*2)*(t.range||2.2);t.active=true;}
+      if(t.type==='rollingRock'){t.currentX=t.x-(t.range||5)+cycle*(t.range||5)*2;t.active=true;}
+      if(t.type==='rockfall'){
+        if(!t.triggered&&Math.abs(p.x-t.x)<(t.triggerX||6)){t.triggered=true;t.triggerTime=time+(t.delay||.6);this.emit('trapTrigger',{x:t.x,y:t.y,type:t.type});}
+        if(t.triggered&&time>=t.triggerTime){t.currentY=t.y-(time-t.triggerTime)*9;t.active=t.currentY>-2;if(!t.active&&time-t.triggerTime>2.5){t.triggered=false;}}
+      }
+      if(t.preview||!t.active)continue;
+      let hazard;
+      if(t.type==='flame')hazard={left:t.x-.36,right:t.x+.36,bottom:t.y,top:t.y+(t.h||2.2)};
+      else if(t.type==='spikes'||t.type==='retractingSpikes')hazard={left:t.x-(t.w||1.6)*.43,right:t.x+(t.w||1.6)*.43,bottom:t.y,top:t.y+.44};
+      else {const radius=(t.type==='rollingRock'||t.type==='rockfall')?0.58:0.4;hazard={left:t.currentX-radius,right:t.currentX+radius,bottom:t.currentY-radius,top:t.currentY+radius};}
+      if(overlaps(a,hazard)&&this.damagePlayer(`trap:${t.type}`,t))break;
+    }
   }
   updateMechanisms(input) {
     const p=this.player;

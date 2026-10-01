@@ -16,6 +16,7 @@ export function createLevelData() {
   const coins = [];
   const enemies = [];
   const mechanisms = [];
+  const traps = [];
   const chunkAt = (x) => Math.max(0, Math.floor(x / 25));
   function solid(id, x, top, w, h, type, extra = {}) {
     solids.push({ id, x, y: top - h / 2, w, h, type, chunk: chunkAt(x), ...extra });
@@ -64,12 +65,32 @@ export function createLevelData() {
     {id:'pipe-water-in',type:'pipe',x:225,y:0,targetX:263,targetY:.05,chunk:9},
     {id:'pipe-water-out',type:'pipe',x:265,y:0,targetX:223,targetY:.05,chunk:10},
   );
+  const trap=(id,type,x,y,combo,extra={})=>traps.push({id,type,x,y,combo,chunk:chunkAt(x),period:2.4,phase:0,damage:1,...extra});
+  // A non-damaging preview precedes the first live version of every mechanism.
+  [['spikes',55],['retractingSpikes',64],['flame',106],['pendulum',121],['blade',207],['rockfall',252],['rollingRock',307],['flyingBlade',350]].forEach(([type,x],i)=>
+    trap(`preview-${type}`,type,x-3,0,`preview-${i}`,{preview:true,damage:0,phase:i*.31}));
+  trap('bamboo-spikes','spikes',60,0,'bamboo-gauntlet',{w:1.8});
+  trap('bamboo-retract','retractingSpikes',67,0,'bamboo-gauntlet',{period:1.9,phase:.2,w:1.6});
+  trap('bamboo-flame','flame',78,0,'bamboo-gauntlet',{period:2.8,phase:.45,h:2.4});
+  trap('village-pendulum','pendulum',128,3.1,'village-eaves',{period:2.6,range:2.5});
+  trap('village-blade','blade',134,1.1,'village-eaves',{period:2.1,range:1.7});
+  trap('village-rockfall','rockfall',174,7,'village-collapse',{triggerX:7,delay:.65});
+  trap('village-spikes','spikes',181,0,'village-collapse',{w:2.2});
+  trap('water-flame','flame',229,0,'water-rhythm',{period:2.35,phase:.35,h:2.2});
+  trap('water-flying','flyingBlade',235,1.2,'water-rhythm',{period:2.2,range:2.1});
+  trap('water-saw','blade',274,.7,'water-wheels',{period:1.7,range:1.5});
+  trap('water-rock','rollingRock',282,.55,'water-wheels',{period:3.1,range:5});
+  trap('palace-retract','retractingSpikes',327,0,'palace-courtyard',{period:1.6,w:2});
+  trap('palace-pendulum','pendulum',333,3.2,'palace-courtyard',{period:2.2,range:2.8});
+  trap('palace-flame','flame',337,0,'palace-courtyard',{period:2.5,phase:.62,h:2.5});
+  trap('palace-flying','flyingBlade',362,1.25,'palace-sprint',{period:1.8,range:2.4});
+  trap('palace-rock','rollingRock',370,.55,'palace-sprint',{period:2.8,range:5.5});
   // Low stone stairs: automatic step-up is limited to 0.32 world units.
   for (let i=0;i<4;i++) solid(`stair-${i}`,393+i*1.1,(i+1)*.28,1.1,(i+1)*.28,'stone');
   solid('palace-dais',404,1.12,17,1.12,'stone');
   enemies.push({id:'elite',x:405,y:1.12,w:1.55,h:1.6,minX:400,maxX:408,speed:1.65,hp:3,elite:true,chunk:16});
   return {
-    length:420, regions:REGIONS.map(r=>({...r})), chunks, solids, coins, enemies, mechanisms,
+    length:420, regions:REGIONS.map(r=>({...r})), chunks, solids, coins, enemies, mechanisms, traps,
     checkpoints:REGIONS.map((r,i)=>({id:`checkpoint-${i}`,x:r.start+3,y:0,name:r.name})),
     goal:{x:412,y:1.12},
   };
