@@ -1,97 +1,77 @@
 import './style.css';
-import * as THREE from 'three';
-import { createScene } from './scene/createScene.js';
-import { createLevel } from './world/createLevel.js';
-import { createPlayer } from './player/createPlayer.js';
-import { createCoins } from './world/createCoins.js';
-import { createHud } from './ui/createHud.js';
-import { createEnemies } from './enemies/createEnemies.js';
-import { createOverlay } from './ui/createOverlay.js';
-import { createGoal } from './world/createGoal.js';
+import {createScene} from './scene/createScene.js';
+import {createLevelData} from './world/levelData.js';
+import {createWorldView} from './world/worldView.js';
+import {createPlayerView} from './player/playerView.js';
+import {Simulation} from './game/simulation.js';
+import {createGameUi} from './ui/gameUi.js';
 
-const app = document.querySelector('#app');
+const app=document.querySelector('#app');
+app.innerHTML='<main class="game-shell"><div id="game" aria-label="超级玛丽国风大地图游戏画面"></div></main>';
+const shell=document.querySelector('.game-shell');
+const stage=createScene(document.querySelector('#game'));
+const level=createLevelData();
+let simulation=new Simulation(level);
+const world=createWorldView(stage.scene,level);
+const hero=createPlayerView(stage.scene);
+const keys=new Set(),pressed=new Set();
+let showFps=false,visual={shake:0,stomp:false},lastTime=performance.now(),fpsClock=0,fpsFrames=0,fps=60;
 
-app.innerHTML = `
-  <main class="game-shell">
-    <div id="game" aria-label="超级玛丽 3D 游戏画面"></div>
-  </main>
-`;
+function start(){simulation.start();ui.update(simulation,{fps,showFps,drawCalls:stage.renderer.info.render.calls});}
+function restart(){simulation.reset();simulation.start();stage.updateCamera(simulation.player,1,{snap:true});ui.notice(simulation.region.name);}
+function resume(){if(simulation.status==='paused')simulation.status='playing';}
+const ui=createGameUi(shell,{start,restart,resume});
 
-const { scene, camera, renderer } = createScene(document.querySelector('#game'));
-const { platforms } = createLevel(scene);
-const player = createPlayer(scene, platforms);
-const coinSystem = createCoins(scene);
-const enemySystem = createEnemies(scene);
-const goal = createGoal(scene);
-const hud = createHud(document.querySelector('.game-shell'));
-const state = { score: 0, coins: 0, lives: 3, status: 'playing' };
-let previousTime = performance.now();
-let elapsed = 0;
-hud.update(state);
-
-function restartGame() {
-  Object.assign(state, { score: 0, coins: 0, lives: 3, status: 'playing' });
-  player.reset();
-  coinSystem.reset();
-  enemySystem.reset();
-  camera.position.x = 7;
-  hud.update(state);
-  overlay.hide();
-}
-
-const overlay = createOverlay(document.querySelector('.game-shell'), restartGame);
-window.addEventListener('keydown', (event) => {
-  if (event.code === 'KeyR') restartGame();
-});
-
-function loseLife() {
-  if (state.status !== 'playing') return;
-  state.lives -= 1;
-  hud.update(state);
-  if (state.lives <= 0) {
-    state.status = 'gameOver';
-    overlay.showGameOver(state.score);
+const controlled=new Set(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','KeyA','KeyD','KeyW','KeyS']);
+window.addEventListener('keydown',event=>{
+  if(controlled.has(event.code))event.preventDefault();
+  if(event.repeat)return;
+  if((event.code==='Enter'||event.code==='Space')&&simulation.status==='ready'){start();return;}
+  if(event.code==='Escape'){
+    if(simulation.status==='playing')simulation.status='paused';else if(simulation.status==='paused')simulation.status='playing';
     return;
   }
-  player.reset();
+  if(event.code==='KeyR'){restart();return;}
+  if(event.code==='KeyF'){showFps=!showFps;return;}
+  keys.add(event.code);pressed.add(event.code);
+});
+window.addEventListener('keyup',event=>keys.delete(event.code));
+window.addEventListener('blur',()=>{keys.clear();if(simulation.status==='playing')simulation.status='paused';});
+
+function inputSnapshot(){
+  const right=keys.has('KeyD')||keys.has('ArrowRight'),left=keys.has('KeyA')||keys.has('ArrowLeft');
+  const jumpHeld=keys.has('Space')||keys.has('KeyW')||keys.has('ArrowUp');
+  const input={move:Number(right)-Number(left),jumpHeld,
+    jumpPressed:pressed.has('Space')||pressed.has('KeyW')||pressed.has('ArrowUp'),
+    interactPressed:pressed.has('KeyS')||pressed.has('ArrowDown')};
+  pressed.clear();return input;
+}
+function handleEvents(events){
+  for(const event of events){
+    if(event.type==='region')ui.notice(event.name);
+    if(event.type==='checkpoint')ui.notice(`界碑已记 · ${event.name}`);
+    if(event.type==='secret')ui.notice(`发现 ${event.name} 暗藏`);
+    if(event.type==='respawn')ui.notice(`回到 ${event.name} 界碑`);
+    if(event.type==='land')visual.shake=Math.min(.8,event.impact/25);
+    if(event.type==='hurt')visual.shake=1;
+    if(event.type==='stomp'){visual.stomp=true;visual.shake=.45;}
+  }
 }
 
-renderer.setAnimationLoop((time) => {
-  const delta = Math.min((time - previousTime) / 1000, 1 / 30);
-  previousTime = time;
-  elapsed += delta;
-  if (state.status !== 'playing') {
-    renderer.render(scene, camera);
-    return;
-  }
-
-  const { fell } = player.update(delta);
-  if (fell) loseLife();
-  enemySystem.update(delta, elapsed);
-  goal.update(elapsed);
-  const enemyContact = enemySystem.checkPlayerCollision(player.getBounds(), player.velocity);
-  if (enemyContact.stomped) {
-    state.score += enemyContact.stomped * 250;
-    hud.update(state);
-  }
-  if (enemyContact.hit) loseLife();
-
-  if (state.status === 'playing' && goal.reached(player.getBounds())) {
-    state.status = 'won';
-    state.score += 1000 + state.lives * 200;
-    hud.update(state);
-    overlay.showWin(state.score);
-  }
-
-  const coinsCollected = coinSystem.update(elapsed, player.getBounds());
-  if (coinsCollected) {
-    state.coins += coinsCollected;
-    state.score += coinsCollected * 100;
-    hud.update(state);
-  }
-
-  const cameraTargetX = Math.max(7, player.mesh.position.x + 5);
-  camera.position.x = THREE.MathUtils.damp(camera.position.x, cameraTargetX, 4, delta);
-  camera.lookAt(camera.position.x - 1, 2.2, 0);
-  renderer.render(scene, camera);
+stage.updateCamera(simulation.player,1,{snap:true});
+stage.renderer.setAnimationLoop(now=>{
+  const dt=Math.min(.05,Math.max(0,(now-lastTime)/1000));lastTime=now;
+  simulation.advance(dt,inputSnapshot());
+  handleEvents(simulation.drainEvents());
+  world.update(simulation,dt,simulation.elapsed);
+  hero.update(simulation.player,simulation.elapsed,{stomp:visual.stomp});visual.stomp=false;
+  stage.updateCamera(simulation.player,dt,{shake:visual.shake});visual.shake=0;
+  stage.renderer.render(stage.scene,stage.camera);
+  fpsClock+=dt;fpsFrames++;
+  if(fpsClock>=.5){fps=fpsFrames/fpsClock;fpsClock=0;fpsFrames=0;}
+  ui.update(simulation,{fps,showFps,drawCalls:stage.renderer.info.render.calls});
 });
+
+if(import.meta.env.DEV){
+  window.__marioDebug={get snapshot(){return {status:simulation.status,player:{...simulation.player},score:simulation.score,lives:simulation.lives,coins:simulation.coinsCollected,region:simulation.region.id,fps,drawCalls:stage.renderer.info.render.calls};}};
+}
