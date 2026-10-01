@@ -6,6 +6,7 @@ import {createPlayerView} from './player/playerView.js';
 import {Simulation} from './game/simulation.js';
 import {createGameUi} from './ui/gameUi.js';
 import {createEffects} from './scene/effects.js';
+import {DEFAULT_BINDINGS,controlState} from './game/controls.js';
 
 const app=document.querySelector('#app');
 app.innerHTML='<main class="game-shell"><div id="game" aria-label="超级玛丽国风大地图游戏画面"></div></main>';
@@ -24,28 +25,25 @@ function restart(){simulation.reset();simulation.start();stage.updateCamera(simu
 function resume(){if(simulation.status==='paused')simulation.status='playing';}
 const ui=createGameUi(shell,{start,restart,resume});
 
-const controlled=new Set(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','KeyA','KeyD','KeyW','KeyS']);
+const controlled=new Set(Object.values(DEFAULT_BINDINGS).flat());
+const bound=(name,code)=>DEFAULT_BINDINGS[name].includes(code);
 window.addEventListener('keydown',event=>{
   if(controlled.has(event.code))event.preventDefault();
   if(event.repeat)return;
   if((event.code==='Enter'||event.code==='Space')&&simulation.status==='ready'){start();return;}
-  if(event.code==='Escape'){
+  if(bound('pause',event.code)){
     if(simulation.status==='playing')simulation.status='paused';else if(simulation.status==='paused')simulation.status='playing';
     return;
   }
-  if(event.code==='KeyR'){restart();return;}
-  if(event.code==='KeyF'){showFps=!showFps;return;}
+  if(bound('restart',event.code)){restart();return;}
+  if(bound('performance',event.code)){showFps=!showFps;return;}
   keys.add(event.code);pressed.add(event.code);
 });
 window.addEventListener('keyup',event=>keys.delete(event.code));
 window.addEventListener('blur',()=>{keys.clear();if(simulation.status==='playing')simulation.status='paused';});
 
 function inputSnapshot(){
-  const right=keys.has('KeyD')||keys.has('ArrowRight'),left=keys.has('KeyA')||keys.has('ArrowLeft');
-  const jumpHeld=keys.has('Space')||keys.has('KeyW')||keys.has('ArrowUp');
-  const input={move:Number(right)-Number(left),jumpHeld,
-    jumpPressed:pressed.has('Space')||pressed.has('KeyW')||pressed.has('ArrowUp'),
-    interactPressed:pressed.has('KeyS')||pressed.has('ArrowDown')};
+  const input=controlState(keys,pressed);
   pressed.clear();return input;
 }
 function handleEvents(events){
