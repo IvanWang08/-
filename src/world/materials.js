@@ -125,6 +125,7 @@ export function createWorldMaterials() {
     water: new THREE.MeshPhysicalMaterial({
       color: '#577f7a', transparent: true, opacity: 0.74, roughness: 0.27,
       metalness: 0.24, clearcoat: 0.85, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
     }),
   };
 }

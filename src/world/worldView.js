@@ -254,14 +254,16 @@ function solidShape(builder, solid) {
   builder.add('box', material, x, y, 0, w, h, 3.2);
   // The exact visual top and side limits remain the collision limits.
   if (type === 'ground') {
-    builder.add('box', 'stone', x, top - 0.035, 0, w, 0.07, 2.65);
+    // Caps sit fully above the collision mesh. Shared top faces previously caused
+    // depth-buffer contention at shallow camera angles.
+    builder.add('box', 'stone', x, top + 0.014, 0, w, 0.028, 2.65);
     for (let dx = -w / 2 + 0.35; dx < w / 2; dx += 1.15) {
-      builder.add('box', 'moss', x + dx, top - 0.06, -1.43, Math.min(0.9, w), 0.12, 0.3);
-      builder.add('box', 'stone', x + dx, top - 0.08, 1.43, Math.min(0.92, w), 0.16, 0.29);
+      builder.add('box', 'moss', x + dx, top + 0.027, -1.43, Math.min(0.9, w), 0.022, 0.3);
+      builder.add('box', 'stone', x + dx, top + 0.02, 1.43, Math.min(0.92, w), 0.018, 0.29);
     }
   } else if (type === 'roof') {
     builder.add('box', 'darkWood', x, y - h * 0.3, 1.56, w, h * 0.22, 0.07);
-    builder.add('box', 'roof', x, top - 0.035, 0, w, 0.07, 3.2);
+    builder.add('box', 'roof', x, top + 0.014, 0, w, 0.028, 3.2);
   } else if (type === 'wood' || type === 'crumble' || type === 'moving') {
     builder.add('box', 'darkWood', x, y - h * 0.29, -1.3, w, h * 0.35, 0.17);
     builder.add('box', 'darkWood', x, y - h * 0.29, 1.3, w, h * 0.35, 0.17);

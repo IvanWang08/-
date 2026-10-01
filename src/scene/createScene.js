@@ -29,6 +29,7 @@ export function createScene(container) {
   sun.shadow.mapSize.set(1536, 1536);
   Object.assign(sun.shadow.camera, { left:-20, right:20, top:22, bottom:-13, near:1, far:58 });
   sun.shadow.bias = -0.0005;
+  sun.shadow.normalBias = 0.018;
   scene.add(sun, sun.target);
 
   function resize() {
