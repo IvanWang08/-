@@ -142,6 +142,7 @@ function building(builder, x, z, width = 8, height = 4.5, palace = false) {
   builder.add('box', 'stone', x, 0.15, z, width + 0.55, 0.5, depth + 0.4);
   builder.add('box', 'wall', x, height / 2, z, width, height, depth);
   builder.add('roof', 'roof', x, height, z, width + 1.8, 2.25, depth + 2);
+  for (const dz of [-1, 1]) builder.line('gold', x - width * 0.58, height + 0.28, z + dz * (depth * 0.68), x + width * 0.58, height + 0.28, z + dz * (depth * 0.68), 0.055);
   builder.add('cylinder', 'darkWood', x, height + 1.37, z, 0.2, width + 1.2, 0.2, 0, 0, Math.PI / 2);
   builder.add('box', palace ? 'red' : 'darkWood', x, height - 0.2, z + depth / 2 + 0.02, width, 0.22, 0.22);
   for (let side = -1; side <= 1; side += 2) {
@@ -185,6 +186,60 @@ function stoneLamp(builder, x, z) {
   builder.add('box', 'stone', x, 1.04, z, 0.52, 0.16, 0.52);
   builder.add('box', 'ivory', x, 1.27, z, 0.3, 0.38, 0.3);
   builder.add('roof', 'stone', x, 1.48, z, 0.84, 0.45, 0.84);
+}
+
+function lanternString(builder, x, y, z, count = 5, spacing = 1.25) {
+  const start = x - (count - 1) * spacing / 2;
+  builder.line('darkWood', start - 0.35, y + 0.55, z, start + (count - 1) * spacing + 0.35, y + 0.55, z, 0.025);
+  for (let i = 0; i < count; i++) lantern(builder, start + i * spacing, y, z, 0.58);
+}
+
+function stoneLion(builder, x, z, facing = 1) {
+  builder.add('box', 'stone', x, 0.18, z, 1.15, 0.36, 1.05);
+  builder.add('sphere', 'stone', x, 0.92, z, 0.9, 1.25, 0.85);
+  builder.add('sphere', 'stone', x + facing * 0.12, 1.63, z, 0.72, 0.72, 0.72);
+  builder.add('sphere', 'ivory', x + facing * 0.43, 1.68, z - 0.19, 0.11, 0.11, 0.08);
+  builder.add('sphere', 'ivory', x + facing * 0.43, 1.68, z + 0.19, 0.11, 0.11, 0.08);
+  for (const dz of [-0.31, 0.31]) builder.add('sphere', 'stone', x + facing * 0.36, 0.46, z + dz, 0.35, 0.28, 0.3);
+  builder.add('ring', 'gold', x + facing * 0.51, 1.37, z, 0.48, 0.48, 0.48, 0, Math.PI / 2);
+}
+
+function lotusPlatform(builder, x, y, z, scale = 1) {
+  builder.add('cylinder', 'stone', x, y + 0.13 * scale, z, 1.5 * scale, 0.26 * scale, 1.5 * scale);
+  for (let i = 0; i < 10; i++) {
+    const angle = i / 10 * Math.PI * 2;
+    builder.add('petal', i % 2 ? 'ivory' : 'gold', x + Math.cos(angle) * 0.92 * scale, y + 0.38 * scale,
+      z + Math.sin(angle) * 0.92 * scale, 0.75 * scale, 0.22 * scale, 0.42 * scale, 0, -angle, angle * 0.05);
+  }
+}
+
+function ceremonialSet(builder, chunk, theme) {
+  const center = (chunk.start + chunk.end) / 2;
+  const z = -4.6;
+  // Repeated silhouettes keep the Chinese visual language legible in every region.
+  lanternString(builder, center, 4.1, z - 1.8, theme === 'palace' ? 7 : 5, 1.18);
+  if (chunk.id % 2 === 0) {
+    // War drum and paired standards.
+    builder.add('cylinder', 'red', center, 1.15, z, 0.92, 0.85, 0.92, Math.PI / 2);
+    builder.add('ring', 'gold', center, 1.15, z - 0.47, 1.32, 1.32, 1.32);
+    for (const side of [-1, 1]) {
+      builder.add('cylinder', 'darkWood', center + side * 2.25, 2.1, z, 0.07, 4.2, 0.07);
+      builder.add('box', side < 0 ? 'red' : 'gold', center + side * 2.72, 3.05, z, 0.88, 1.55, 0.05, 0, 0, side * 0.08);
+    }
+  } else {
+    // Sutra pillar with cloud curls and a lotus plinth.
+    lotusPlatform(builder, center, 0, z, 0.62);
+    builder.add('cylinder', 'stone', center, 1.72, z, 0.35, 3, 0.35);
+    builder.add('roof', 'gold', center, 3.22, z, 1.25, 0.7, 1.25);
+    for (const side of [-1, 1]) {
+      builder.add('ring', side < 0 ? 'ivory' : 'gold', center + side * 1.05, 2.1, z, 0.85, 0.85, 0.85, Math.PI / 2);
+      builder.add('sphere', 'ivory', center + side * 1.55, 2.1, z, 0.7, 0.28, 0.32);
+    }
+  }
+  if (chunk.start === 0 || chunk.start === 100 || chunk.start === 300) {
+    stoneLion(builder, chunk.start + 5.1, -3.9, 1);
+    stoneLion(builder, chunk.start + 9.4, -3.9, -1);
+  }
 }
 
 function backdrop(builder, chunk) {
@@ -235,6 +290,7 @@ function backdrop(builder, chunk) {
     for (let j = 0; j < 4; j++) stoneLamp(builder, chunk.start + 3 + j * 6, -3.7);
     for (let i = 0; i < 6; i++) bamboo(builder, random, chunk.start + random() * 25, -6.5 - random() * 3, 4.5 + random() * 2);
   }
+  ceremonialSet(builder, chunk, theme);
   // Low silhouettes keep the camera-facing edge readable instead of occluding it.
   for (let i = 0; i < 55; i++) {
     const x = chunk.start + random() * 25;
