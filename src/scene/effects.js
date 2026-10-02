@@ -11,6 +11,11 @@ export function createEffects(scene) {
   geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
   const material=new THREE.PointsMaterial({size:.13,vertexColors:true,transparent:true,opacity:.9,depthWrite:false,sizeAttenuation:true});
   const points=new THREE.Points(geometry,material);points.frustumCulled=false;scene.add(points);
+  const waveMaterial=new THREE.MeshBasicMaterial({color:'#70cfff',transparent:true,opacity:.72,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+  const fieldMaterial=new THREE.MeshBasicMaterial({color:'#3c8ee8',transparent:true,opacity:.2,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+  const waveGeometry=new THREE.RingGeometry(.48,.72,24,1,-1.15,2.3),fieldGeometry=new THREE.RingGeometry(.76,1,48);
+  const waveViews=Array.from({length:16},()=>{const m=new THREE.Mesh(waveGeometry,waveMaterial);m.visible=false;m.rotation.y=-Math.PI/2;scene.add(m);return m;});
+  const fieldViews=Array.from({length:5},()=>{const m=new THREE.Mesh(fieldGeometry,fieldMaterial);m.visible=false;m.rotation.x=-Math.PI/2;scene.add(m);return m;});
   let cursor=0;
   function burst(x,y,kind='coin') {
     const palette=kind==='hurt'?['#d84b3d','#ffc08a']:kind==='stomp'?['#e8d5a5','#78a878']:kind==='secret'?['#f4c95d','#79c58a']:kind==='doubleJump'?['#fff1b5','#73cdf0']:['#f4bd38','#fff0a3'];
@@ -28,12 +33,12 @@ export function createEffects(scene) {
     positions[i*3]=x-facing*.35;positions[i*3+1]=y+.75+(i%4)*.11;positions[i*3+2]=.2;
     color(i%2?'#ffd36b':'#8ed8ed').toArray(colors,i*3);geometry.attributes.color.needsUpdate=true;
   }
-  function staffSweep(x,y,facing){
+  function swordSweep(x,y,facing){
     for(let j=0;j<18;j++){
       const i=cursor++%capacity,p=particles[i],angle=(-80+j/17*160)*Math.PI/180,radius=1.3+j%3*.65;
       p.life=.16+j%4*.018;p.vx=facing*Math.cos(angle)*1.4;p.vy=Math.sin(angle)*1.4;p.vz=(j%2?1:-1)*.08;p.gravity=.4;
       positions[i*3]=x+facing*Math.cos(angle)*radius;positions[i*3+1]=y+Math.sin(angle)*radius;positions[i*3+2]=.3;
-      color(j%3?'#f7c94c':'#fff2a3').toArray(colors,i*3);
+      color(j%3?'#5fc7ff':'#d9f4ff').toArray(colors,i*3);
     }
     geometry.attributes.color.needsUpdate=true;
   }
@@ -45,5 +50,9 @@ export function createEffects(scene) {
     }
     geometry.attributes.position.needsUpdate=true;
   }
-  return {burst,trail,staffSweep,update,dispose(){scene.remove(points);geometry.dispose();material.dispose();}};
+  function syncCombat(projectiles=[],fields=[],time=0){
+    waveViews.forEach((view,i)=>{const wave=projectiles[i];view.visible=!!wave;if(!wave)return;view.position.set(wave.x,wave.y,.35);view.rotation.z=wave.vx<0?Math.PI:0;view.scale.setScalar(1+Math.sin(time*18+i)*.08);});
+    fieldViews.forEach((view,i)=>{const field=fields[i];view.visible=!!field;if(!field)return;view.position.set(field.x,.035,.05);view.scale.setScalar(field.radius*(1+Math.sin(time*6)*.04));view.rotation.z=time*.45;});
+  }
+  return {burst,trail,swordSweep,update,syncCombat,dispose(){scene.remove(points);for(const v of [...waveViews,...fieldViews])scene.remove(v);geometry.dispose();material.dispose();waveGeometry.dispose();fieldGeometry.dispose();waveMaterial.dispose();fieldMaterial.dispose();}};
 }
