@@ -10,13 +10,14 @@ import {createTrapView} from './world/trapView.js';
 import {DEFAULT_BINDINGS,controlState} from './game/controls.js';
 
 const app=document.querySelector('#app');
-app.innerHTML='<main class="game-shell"><div id="game" aria-label="超级玛丽国风大地图游戏画面"></div></main>';
+app.innerHTML='<main class="game-shell"><div id="game" aria-label="超级玛丽国风大地图游戏画面"></div><div class="model-loading" data-loading>侠客模型载入中 · 0%</div></main>';
 const shell=document.querySelector('.game-shell');
 const stage=createScene(document.querySelector('#game'));
 const level=createLevelData();
 let simulation=new Simulation(level);
 const world=createWorldView(stage.scene,level);
-const hero=createPlayerView(stage.scene);
+const loading=document.querySelector('[data-loading]');
+const hero=createPlayerView(stage.scene,{onProgress:value=>{loading.textContent=`侠客模型载入中 · ${Math.round(value*100)}%`;if(value>=1)loading.classList.add('done');}});
 const effects=createEffects(stage.scene);
 const trapView=createTrapView(stage.scene,level);
 const keys=new Set(),pressed=new Set();
@@ -68,7 +69,7 @@ stage.renderer.setAnimationLoop(now=>{
   handleEvents(simulation.drainEvents());
   world.update(simulation,dt,simulation.elapsed);
   trapView.update(simulation,simulation.elapsed);
-  hero.update(simulation.player,simulation.elapsed,{stomp:visual.stomp});visual.stomp=false;
+  hero.update(simulation.player,simulation.elapsed,{stomp:visual.stomp,status:simulation.status});visual.stomp=false;
   if(simulation.player.dashTime>0)effects.trail(simulation.player.x,simulation.player.y,simulation.player.facing);
   effects.update(dt);
   stage.updateCamera(simulation.player,dt,{shake:visual.shake});visual.shake=0;

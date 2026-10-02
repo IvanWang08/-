@@ -11,7 +11,7 @@ export class Simulation {
     this.mechanisms=this.level.mechanisms.map(m=>({...m,cooldown:0}));
     this.traps=(this.level.traps||[]).map(t=>({...t,active:false,currentX:t.x,currentY:t.y,triggered:false,triggerTime:0}));
     this.player={x:3,y:.02,w:.8,h:1.65,vx:0,vy:0,grounded:false,supportId:null,facing:1,invulnerable:0,
-      jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0};
+      jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0,hurtTime:0};
     this.status='ready'; this.score=0; this.coinsCollected=0; this.lives=3;
     this.elapsed=0; this.checkpointIndex=0; this.region=this.level.regions[0];
     this.events=[]; this.secrets=new Set(); this.coyote=0; this.jumpBuffer=0;
@@ -54,7 +54,7 @@ export class Simulation {
   }
   damagePlayer(reason,source){
     if(this.player.invulnerable>0||this.player.dashTime>0)return false;
-    this.loseLife(reason);if(source)this.emit('trapHit',{x:source.currentX??source.x,y:source.currentY??source.y,type:source.type});return true;
+    this.player.hurtTime=.45;this.loseLife(reason);if(source)this.emit('trapHit',{x:source.currentX??source.x,y:source.currentY??source.y,type:source.type});return true;
   }
   updatePlatforms(dt,solids) {
     const p=this.player;
@@ -98,6 +98,7 @@ export class Simulation {
     const p=this.player;
     const solids=this.localSolids();
     p.invulnerable=Math.max(0,p.invulnerable-dt);
+    p.hurtTime=Math.max(0,p.hurtTime-dt);
     p.dashCooldown=Math.max(0,p.dashCooldown-dt);p.dashTime=Math.max(0,p.dashTime-dt);
     p.attackCooldown=Math.max(0,p.attackCooldown-dt);p.attackTime=Math.max(0,p.attackTime-dt);
     this.pipeCooldown=Math.max(0,this.pipeCooldown-dt);
