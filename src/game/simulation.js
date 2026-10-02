@@ -225,14 +225,25 @@ export class Simulation {
   updateTraps(dt){
     const p=this.player,a=bounds(p),time=this.elapsed;
     for(const t of this.traps){
-      const cycle=((time/t.period+(t.phase||0))%1+1)%1;t.active=false;t.currentX=t.x;t.currentY=t.y;
+      const cycle=((time/t.period+(t.phase||0))%1+1)%1;t.active=false;
+      if(!t.pursuit){t.currentX=t.x;t.currentY=t.y;}
       if(t.type==='spikes')t.active=true;
       if(t.type==='retractingSpikes')t.active=cycle>.38&&cycle<.76;
       if(t.type==='flame')t.active=cycle>.16&&cycle<.61;
       if(t.type==='pendulum'){const angle=Math.sin(cycle*Math.PI*2)*1.05;t.currentX=t.x+Math.sin(angle)*(t.range||2.5);t.currentY=t.y-Math.cos(angle)*2.5;t.active=true;}
       if(t.type==='blade'){t.currentX=t.x+Math.sin(cycle*Math.PI*2)*(t.range||1.6);t.active=true;}
       if(t.type==='flyingBlade'){t.currentX=t.x+Math.sin(cycle*Math.PI*2)*(t.range||2.2);t.active=true;}
-      if(t.type==='rollingRock'){t.currentX=t.x-(t.range||5)+cycle*(t.range||5)*2;t.active=true;}
+      if(t.type==='rollingRock'&&t.pursuit){
+        if(!t.triggered&&p.x>=t.x-3&&p.x<(t.endX||t.x+70)){
+          t.triggered=true;t.currentX=p.x-7;t.currentY=t.y;
+          this.emit('trapTrigger',{x:t.currentX,y:t.currentY,type:t.type});
+        }
+        if(t.triggered&&t.currentX<(t.endX||t.x+70)){
+          t.currentX=Math.min(t.currentX+(t.chaseSpeed||7.2)*dt,t.endX||t.x+70);
+          t.currentY=t.y;t.active=true;
+        }
+      }
+      if(t.type==='rollingRock'&&!t.pursuit){t.currentX=t.x-(t.range||5)+cycle*(t.range||5)*2;t.active=true;}
       if(t.type==='rockfall'){
         if(!t.triggered&&Math.abs(p.x-t.x)<(t.triggerX||6)){t.triggered=true;t.triggerTime=time+(t.delay||.6);this.emit('trapTrigger',{x:t.x,y:t.y,type:t.type});}
         if(t.triggered&&time>=t.triggerTime){t.currentY=t.y-(time-t.triggerTime)*9;t.active=t.currentY>-2;if(!t.active&&time-t.triggerTime>2.5){t.triggered=false;}}

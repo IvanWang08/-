@@ -69,25 +69,35 @@ export function createLevelData() {
     {id:'pipe-water-out',type:'pipe',x:265,y:0,targetX:223,targetY:.05,chunk:10},
   );
   const trap=(id,type,x,y,combo,extra={})=>traps.push({id,type,x,y,combo,chunk:chunkAt(x),period:2.4,phase:0,damage:1,...extra});
-  // A non-damaging preview precedes the first live version of every mechanism.
-  [['spikes',55],['retractingSpikes',64],['flame',106],['pendulum',121],['blade',207],['rockfall',252],['rollingRock',307],['flyingBlade',350]].forEach(([type,x],i)=>
-    trap(`preview-${type}`,type,x-3,0,`preview-${i}`,{preview:true,damage:0,phase:i*.31}));
-  trap('bamboo-spikes','spikes',60,0,'bamboo-gauntlet',{w:1.8});
-  trap('bamboo-retract','retractingSpikes',67,0,'bamboo-gauntlet',{period:1.9,phase:.2,w:1.6});
-  trap('bamboo-flame','flame',78,0,'bamboo-gauntlet',{period:2.8,phase:.45,h:2.4});
-  trap('village-pendulum','pendulum',128,3.1,'village-eaves',{period:2.6,range:2.5});
-  trap('village-blade','blade',134,1.1,'village-eaves',{period:2.1,range:1.7});
-  trap('village-rockfall','rockfall',174,7,'village-collapse',{triggerX:7,delay:.65});
-  trap('village-spikes','spikes',181,0,'village-collapse',{w:2.2});
-  trap('water-flame','flame',229,0,'water-rhythm',{period:2.35,phase:.35,h:2.2});
-  trap('water-flying','flyingBlade',235,1.2,'water-rhythm',{period:2.2,range:2.1});
-  trap('water-saw','blade',274,.7,'water-wheels',{period:1.7,range:1.5});
-  trap('water-rock','rollingRock',282,.55,'water-wheels',{period:3.1,range:5});
-  trap('palace-retract','retractingSpikes',327,0,'palace-courtyard',{period:1.6,w:2});
-  trap('palace-pendulum','pendulum',333,3.2,'palace-courtyard',{period:2.2,range:2.8});
-  trap('palace-flame','flame',337,0,'palace-courtyard',{period:2.5,phase:.62,h:2.5});
-  trap('palace-flying','flyingBlade',362,1.25,'palace-sprint',{period:1.8,range:2.4});
-  trap('palace-rock','rollingRock',370,.55,'palace-sprint',{period:2.8,range:5.5});
+  // Every live hazard belongs to a readable 3–6 beat sequence. A ghosted,
+  // non-damaging preview always appears before that hazard's first live use.
+  [['spikes',50],['retractingSpikes',55],['flame',63],['pendulum',110],['blade',205],['flyingBlade',305],['rockfall',405],['rollingRock',420]].forEach(([type,x],i)=>
+    trap(`preview-${type}`,type,x,0,'safe-demonstrations',{preview:true,damage:0,phase:i*.17,template:'preview'}));
+  // A: jump → dash → jump tutorial.
+  trap('bamboo-jump','spikes',60,0,'a-jump-dash-jump',{template:'jump-dash-jump',difficulty:1,w:1.6});
+  trap('bamboo-dash','flame',72,0,'a-jump-dash-jump',{template:'jump-dash-jump',difficulty:1,period:3.2,phase:.48,h:2.1});
+  trap('bamboo-finish','retractingSpikes',84,0,'a-jump-dash-jump',{template:'jump-dash-jump',difficulty:1,period:2.6,phase:.2,w:1.5});
+  // B: three pendulums with evenly offset phases.
+  for(let i=0;i<3;i++)trap(`village-pendulum-${i}`,'pendulum',124+i*7,3.35,'b-pendulum-array',{template:'pendulum-array',difficulty:2,period:3.3,phase:i/3,range:2.25});
+  // C: alternating bridge fire and blades.
+  trap('water-fire-a','flame',224,0,'c-alternating-fire',{template:'alternating-fire',difficulty:3,period:3,phase:.05,h:2});
+  trap('water-blade','blade',234,1.1,'c-alternating-fire',{template:'alternating-fire',difficulty:3,period:2.8,phase:.4,range:1.4});
+  trap('water-fire-b','flame',244,0,'c-alternating-fire',{template:'alternating-fire',difficulty:3,period:3,phase:.55,h:2});
+  // D: short reaction corridor.
+  trap('palace-flying-a','flyingBlade',326,1.1,'d-running-corridor',{template:'running-corridor',difficulty:4,period:2.6,phase:.1,range:1.8});
+  trap('palace-rockfall','rockfall',338,7,'d-running-corridor',{template:'running-corridor',difficulty:4,triggerX:6,delay:.8});
+  trap('palace-flying-b','flyingBlade',350,1.3,'d-running-corridor',{template:'running-corridor',difficulty:4,period:2.5,phase:.6,range:2});
+  // E: continuous grotto gauntlet over collapsing boards.
+  trap('grotto-rock','rollingRock',452,.6,'e-grotto-gauntlet',{template:'running-corridor',difficulty:5,period:3.8,range:4.5});
+  trap('grotto-flying','flyingBlade',466,1.3,'e-grotto-gauntlet',{template:'running-corridor',difficulty:5,period:2.4,phase:.25,range:2});
+  trap('grotto-fall','rockfall',480,8,'e-grotto-gauntlet',{template:'running-corridor',difficulty:5,triggerX:7,delay:.7});
+  // F: a rolling pursuit, then an elite guard ring before South Heaven Gate.
+  trap('sky-pursuit','rollingRock',630,.7,'f-graduation-run',{template:'graduation-run',difficulty:6,pursuit:true,endX:705,chaseSpeed:7.2});
+  trap('sky-fire','flame',660,0,'f-graduation-run',{template:'graduation-run',difficulty:6,period:2.6,phase:.35,h:2.3});
+  trap('sky-flying','flyingBlade',675,1.5,'f-graduation-run',{template:'graduation-run',difficulty:6,period:2.1,phase:.65,range:2.3});
+  trap('guard-spikes','spikes',764,0,'f-elite-guard',{template:'elite-guard',difficulty:6,w:1.5});
+  trap('guard-blade','blade',771,2.2,'f-elite-guard',{template:'elite-guard',difficulty:6,period:2.4,range:1.5});
+  trap('guard-flame','flame',782,2.2,'f-elite-guard',{template:'elite-guard',difficulty:6,period:2.8,phase:.55,h:2});
   // Palace finale, followed by the cave's slowly breathing Buddha palms.
   for(let i=0;i<4;i++)solid(`stair-${i}`,383+i*1.1,(i+1)*.28,1.1,(i+1)*.28,'stone');
   solid('palace-dais',393,1.12,13,1.12,'stone');
