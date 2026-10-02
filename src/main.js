@@ -1,13 +1,14 @@
 import './style.css';
 import {createScene} from './scene/createScene.js';
 import {createLevelData} from './world/levelData.js';
-import {createWorldView} from './world/worldView.js';
+import {createWorldView} from './world/premiumWorldView.js';
 import {createPlayerView} from './player/playerView.js';
 import {Simulation} from './game/simulation.js';
 import {createGameUi} from './ui/gameUi.js';
 import {createEffects} from './scene/effects.js';
 import {createTrapView} from './world/trapView.js';
 import {DEFAULT_BINDINGS,controlState} from './game/controls.js';
+import {groundHeightAt} from './world/layers.js';
 
 const app=document.querySelector('#app');
 app.innerHTML='<main class="game-shell"><div id="game" aria-label="超级玛丽国风大地图游戏画面"></div><div class="model-loading" data-loading>侠客模型载入中 · 0%</div></main>';
@@ -19,7 +20,7 @@ const world=createWorldView(stage.scene,level);
 const loading=document.querySelector('[data-loading]');
 const hero=createPlayerView(stage.scene,{onProgress:value=>{loading.textContent=`侠客模型载入中 · ${Math.round(value*100)}%`;if(value>=1)loading.classList.add('done');}});
 const effects=createEffects(stage.scene);
-const trapView=createTrapView(stage.scene,level);
+const trapView=createTrapView(world.propsRoot,level,world.materials);
 const keys=new Set(),pressed=new Set();
 let showFps=false,visual={shake:0,stomp:false},lastTime=performance.now(),fpsClock=0,fpsFrames=0,fps=60;
 
@@ -28,6 +29,15 @@ function start(){simulation.start();ui.update(simulation,performanceStats());}
 function restart(){simulation.reset();simulation.start();stage.updateCamera(simulation.player,1,{snap:true});ui.notice(simulation.region.name);}
 function resume(){if(simulation.status==='paused')simulation.status='playing';}
 const ui=createGameUi(shell,{start,restart,resume});
+const captureParams=new URLSearchParams(location.search);
+if(captureParams.has('capture')){
+  const shot=Math.max(0,Math.min(2,Number(captureParams.get('shot'))||0)),positions=[12,43,78];
+  const x=positions[shot],ground=groundHeightAt(level,x,{includePlatforms:true,fallback:0});
+  simulation.start();Object.assign(simulation.player,{x,y:ground+.02,vx:0,vy:0,grounded:true});simulation.status='paused';
+  world.update(simulation,0,simulation.elapsed);hero.update(simulation.player,0,{status:'paused'});stage.updateCamera(simulation.player,1,{snap:true});
+  const button=document.createElement('button');button.className='capture-button';button.textContent='导出 4K PNG';
+  button.addEventListener('click',()=>stage.capture4K(`${captureParams.get('capture')||'scene'}-${shot+1}.png`));shell.appendChild(button);
+}
 
 const controlled=new Set(Object.values(DEFAULT_BINDINGS).flat());
 const bound=(name,code)=>DEFAULT_BINDINGS[name].includes(code);
@@ -59,8 +69,8 @@ function handleEvents(events){
     if(event.type==='land')visual.shake=Math.min(.8,event.impact/25);
     if(event.type==='hurt')visual.shake=1;
     if(event.type==='stomp'){visual.stomp=true;visual.shake=.45;}
-    if(event.type==='attack')effects.staffSweep(event.x,event.y,event.facing);
-    if(['coin','stomp','hurt','secret','spring','pipe','doubleJump','strike','attack'].includes(event.type))effects.burst(event.x??simulation.player.x,event.y??simulation.player.y+1,event.type);
+    if(event.type==='attack')effects.swordSweep(event.x,event.y,event.facing);
+    if(['coin','stomp','hurt','secret','spring','pipe','doubleJump','strike','attack','enemyShatter','swordWave','swordFieldCast'].includes(event.type))effects.burst(event.x??simulation.player.x,event.y??simulation.player.y+1,event.type);
   }
 }
 
@@ -71,11 +81,12 @@ stage.renderer.setAnimationLoop(now=>{
   handleEvents(simulation.drainEvents());
   world.update(simulation,dt,simulation.elapsed);
   trapView.update(simulation,simulation.elapsed);
-  hero.update(simulation.player,simulation.elapsed,{stomp:visual.stomp,status:simulation.status});visual.stomp=false;
+  hero.update(simulation.player,simulation.elapsed,{stomp:visual.stomp,status:simulation.status,lowHealth:simulation.lives===1});visual.stomp=false;
   if(simulation.player.dashTime>0)effects.trail(simulation.player.x,simulation.player.y,simulation.player.facing);
   effects.update(dt);
+  effects.syncCombat(simulation.projectiles.projectiles,simulation.projectiles.fields,simulation.elapsed);
   stage.updateCamera(simulation.player,dt,{shake:visual.shake});visual.shake=0;
-  stage.renderer.render(stage.scene,stage.camera);
+  stage.render(now/1000);
   fpsClock+=dt;fpsFrames++;
   if(fpsClock>=.5){fps=fpsFrames/fpsClock;fpsClock=0;fpsFrames=0;}
   ui.update(simulation,performanceStats());
