@@ -90,6 +90,9 @@ class BatchBuilder {
       matrices.forEach((matrix, index) => mesh.setMatrixAt(index, matrix));
       mesh.castShadow = !['grass', 'mountain', 'distantMountain', 'willow'].includes(material);
       mesh.receiveShadow = true;
+      mesh.userData.baseCastShadow=mesh.castShadow;
+      mesh.userData.lodDetail=['grass','leaf','willow','bambooJoint'].includes(material);
+      mesh.userData.lodLow=material==='lightLeaf';
       mesh.computeBoundingSphere();
       this.group.add(mesh);
     }
@@ -247,6 +250,8 @@ function backdrop(builder, chunk, level) {
   const random = randomGenerator(hash(chunk.id));
   const center = (chunk.start + chunk.end) / 2;
   const theme = themeAt(center);
+  // One low-poly foliage mass replaces hundreds of tiny silhouettes at distance.
+  builder.add('sphere','lightLeaf',center,3.2,Z_LAYERS.midDecoration.default,11,3.2,5.5);
   // A broad background bank sits behind the playable 3.2-unit-wide path.
   if (theme !== 'water') {
     builder.add('box', 'earth', center, -1.9, -12, chunk.end - chunk.start + 0.2, 3, 20);
@@ -535,7 +540,15 @@ export function createWorldView(scene, level) {
 
   function update(sim, dt = 1 / 60, time = 0) {
     const playerX = sim.player?.x ?? 0;
-    for (const chunk of chunks) chunk.group.visible = chunk.end > playerX - 65 && chunk.start < playerX + 80;
+    for (const chunk of chunks){
+      const distance=Math.abs((chunk.start+chunk.end)/2-playerX);chunk.group.visible=chunk.end>playerX-58&&chunk.start<playerX+72;
+      if(!chunk.group.visible)continue;
+      for(const child of chunk.group.children){
+        if(child.userData.lodDetail)child.visible=distance<57;
+        else if(child.userData.lodLow)child.visible=distance>48;
+        child.castShadow=child.userData.baseCastShadow===true&&distance<38;
+      }
+    }
     for (const solid of sim.solids || level.solids) {
       const group = dynamicSolids.get(solid.id);
       if (!group) continue;
