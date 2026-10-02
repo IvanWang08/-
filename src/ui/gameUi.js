@@ -24,7 +24,7 @@ export function createGameUi(root, callbacks={}) {
     q('[data-score]').textContent=String(sim.score).padStart(6,'0');q('[data-coins]').textContent=String(sim.coinsCollected).padStart(2,'0');
     q('[data-lives]').textContent=['零','一','二','三'][sim.lives]??String(sim.lives);q('[data-region]').textContent=sim.region?.name??'青竹林';
     const distance=Math.max(0,Math.min(sim.level.length,Math.round(sim.player.x)));q('[data-distance]').textContent=`${distance} / ${sim.level.length}`;q('[data-progress]').style.width=`${distance/sim.level.length*100}%`;
-    const fps=q('[data-fps]');fps.hidden=!stats.showFps;fps.textContent=`FPS ${Math.round(stats.fps||0)} · ${stats.drawCalls||0} DRAW`;
+    const fps=q('[data-fps]');fps.hidden=!stats.showFps;fps.textContent=`FPS ${Math.round(stats.fps||0)} · ${stats.drawCalls||0} DRAW · ${stats.triangles||0} TRI${stats.memoryMB?` · ${stats.memoryMB.toFixed(0)} MB`:''}`;
     lastStatus=sim.status;modal.classList.toggle('hidden',sim.status==='playing');
     if(sim.status==='ready'){title.textContent='云游四境';copy.textContent='越竹林，登村檐，渡水桥，抵达宫门。';action.textContent='启程';}
     if(sim.status==='paused'){title.textContent='且歇片刻';copy.textContent='山河仍在，随时续行。';action.textContent='继续';}

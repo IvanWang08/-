@@ -23,7 +23,8 @@ const trapView=createTrapView(stage.scene,level);
 const keys=new Set(),pressed=new Set();
 let showFps=false,visual={shake:0,stomp:false},lastTime=performance.now(),fpsClock=0,fpsFrames=0,fps=60;
 
-function start(){simulation.start();ui.update(simulation,{fps,showFps,drawCalls:stage.renderer.info.render.calls});}
+function performanceStats(){return{fps,showFps,drawCalls:stage.renderer.info.render.calls,triangles:stage.renderer.info.render.triangles,memoryMB:performance.memory?performance.memory.usedJSHeapSize/1048576:null};}
+function start(){simulation.start();ui.update(simulation,performanceStats());}
 function restart(){simulation.reset();simulation.start();stage.updateCamera(simulation.player,1,{snap:true});ui.notice(simulation.region.name);}
 function resume(){if(simulation.status==='paused')simulation.status='playing';}
 const ui=createGameUi(shell,{start,restart,resume});
@@ -77,12 +78,12 @@ stage.renderer.setAnimationLoop(now=>{
   stage.renderer.render(stage.scene,stage.camera);
   fpsClock+=dt;fpsFrames++;
   if(fpsClock>=.5){fps=fpsFrames/fpsClock;fpsClock=0;fpsFrames=0;}
-  ui.update(simulation,{fps,showFps,drawCalls:stage.renderer.info.render.calls});
+  ui.update(simulation,performanceStats());
 });
 
 if(import.meta.env.DEV||new URLSearchParams(location.search).has('debug')){
   window.__marioDebug={get snapshot(){
     const projected=hero.root.position.clone().add({x:0,y:simulation.player.h*.5,z:0}).project(stage.camera);
-    return {status:simulation.status,player:{...simulation.player},playerNdc:{x:projected.x,y:projected.y},camera:{x:stage.camera.position.x,y:stage.camera.position.y,z:stage.camera.position.z},score:simulation.score,lives:simulation.lives,coins:simulation.coinsCollected,region:simulation.region.id,fps,drawCalls:stage.renderer.info.render.calls};
+    return {status:simulation.status,player:{...simulation.player,attackHits:undefined},playerNdc:{x:projected.x,y:projected.y},camera:{x:stage.camera.position.x,y:stage.camera.position.y,z:stage.camera.position.z},score:simulation.score,lives:simulation.lives,coins:simulation.coinsCollected,region:simulation.region.id,...performanceStats()};
   }};
 }

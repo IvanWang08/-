@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+const COLOR_CACHE=new Map();
+const color=(value)=>{if(!COLOR_CACHE.has(value))COLOR_CACHE.set(value,new THREE.Color(value));return COLOR_CACHE.get(value);};
 
 export function createEffects(scene) {
   const capacity=140,positions=new Float32Array(capacity*3),colors=new Float32Array(capacity*3);
@@ -17,21 +19,21 @@ export function createEffects(scene) {
       const i=cursor++%capacity,p=particles[i],angle=j/count*Math.PI*2+(i%7)*.13,speed=1.5+(i%5)*.38;
       p.life=.48+(i%4)*.09;p.vx=Math.cos(angle)*speed;p.vy=1.4+Math.sin(angle)*speed+(i%3)*.4;p.vz=((i%5)-2)*.35;p.gravity=kind==='secret'?1.7:5.2;
       positions[i*3]=x;positions[i*3+1]=y;positions[i*3+2]=.35;
-      new THREE.Color(palette[i%palette.length]).toArray(colors,i*3);
+      color(palette[i%palette.length]).toArray(colors,i*3);
     }
     geometry.attributes.color.needsUpdate=true;
   }
   function trail(x,y,facing){
     const i=cursor++%capacity,p=particles[i];p.life=.22;p.vx=-facing*(1+(i%3)*.25);p.vy=.25+(i%2)*.2;p.vz=((i%5)-2)*.08;p.gravity=.8;
     positions[i*3]=x-facing*.35;positions[i*3+1]=y+.75+(i%4)*.11;positions[i*3+2]=.2;
-    new THREE.Color(i%2?'#ffd36b':'#8ed8ed').toArray(colors,i*3);geometry.attributes.color.needsUpdate=true;
+    color(i%2?'#ffd36b':'#8ed8ed').toArray(colors,i*3);geometry.attributes.color.needsUpdate=true;
   }
   function staffSweep(x,y,facing){
     for(let j=0;j<18;j++){
       const i=cursor++%capacity,p=particles[i],angle=(-80+j/17*160)*Math.PI/180,radius=1.3+j%3*.65;
       p.life=.16+j%4*.018;p.vx=facing*Math.cos(angle)*1.4;p.vy=Math.sin(angle)*1.4;p.vz=(j%2?1:-1)*.08;p.gravity=.4;
       positions[i*3]=x+facing*Math.cos(angle)*radius;positions[i*3+1]=y+Math.sin(angle)*radius;positions[i*3+2]=.3;
-      new THREE.Color(j%3?'#f7c94c':'#fff2a3').toArray(colors,i*3);
+      color(j%3?'#f7c94c':'#fff2a3').toArray(colors,i*3);
     }
     geometry.attributes.color.needsUpdate=true;
   }
