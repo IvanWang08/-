@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createWorldMaterials } from './materials.js';
+import {groundedY,Z_LAYERS} from './layers.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const TEMP = new THREE.Object3D();
@@ -242,7 +243,7 @@ function ceremonialSet(builder, chunk, theme) {
   }
 }
 
-function backdrop(builder, chunk) {
+function backdrop(builder, chunk, level) {
   const random = randomGenerator(hash(chunk.id));
   const center = (chunk.start + chunk.end) / 2;
   const theme = themeAt(center);
@@ -252,9 +253,9 @@ function backdrop(builder, chunk) {
     builder.add('box', 'moss', center, -0.35, -12, chunk.end - chunk.start + 0.2, 0.14, 20);
   }
   for (let i = 0; i < 5; i++) {
-    builder.add('rock', 'mountain', chunk.start + random() * 25, 2 + random() * 4, -21 - random() * 10,
+    builder.add('rock', 'mountain', chunk.start + random() * 25, 2 + random() * 4, Z_LAYERS.midDecoration.default-random()*14,
       12 + random() * 14, 10 + random() * 15, 10 + random() * 13, 0.06, random() * 4, 0);
-    builder.add('rock', 'distantMountain', chunk.start + random() * 25, 5 + random() * 5, -43 - random() * 17,
+    builder.add('rock', 'distantMountain', chunk.start + random() * 25, 5 + random() * 5, Z_LAYERS.farBackground.default-random()*14,
       19 + random() * 17, 20 + random() * 24, 15 + random() * 16, 0, random() * 4, 0.05);
   }
   if (theme === 'bamboo') {
@@ -294,11 +295,12 @@ function backdrop(builder, chunk) {
   // Low silhouettes keep the camera-facing edge readable instead of occluding it.
   for (let i = 0; i < 55; i++) {
     const x = chunk.start + random() * 25;
-    const z = i % 2 ? -3.3 - random() * 2 : 2.25 + random() * 1.5;
-    const y = theme === 'water' ? -1.1 : -0.28;
+    const z = i % 2 ? Z_LAYERS.nearDecoration.default-random()*2 : Z_LAYERS.foreground.default+random();
+    const surface = theme === 'water' ? -0.85 : groundHeightAt(level,x,{fallback:0});
     if (theme === 'water' && z > 0) continue;
-    builder.add('cone', 'grass', x, y + 0.2, z, 0.35, 0.35 + random() * 0.5, 0.22, 0, random() * 6, (random() - 0.5) * 0.6);
-    if (i % 7 === 0) builder.add('rock', 'stone', x, y + 0.15, z, 0.7, 0.6, 0.7, random(), random(), random());
+    const grassHeight=0.35+random()*0.5;
+    builder.add('cone', 'grass', x, groundedY(level,x,grassHeight,{fallback:surface}), z, 0.35, grassHeight, 0.22, 0, random() * 6, (random() - 0.5) * 0.35);
+    if (i % 7 === 0) builder.add('rock', 'stone', x, groundedY(level,x,.6,{fallback:surface}), z, 0.7, 0.6, 0.7, random()*.15, random(), random()*.15);
   }
 }
 
@@ -478,7 +480,7 @@ export function createWorldView(scene, level) {
     const group = new THREE.Group();
     group.name = `Landscape ${chunk.id}`;
     const builder = new BatchBuilder(group, geometry, materials);
-    backdrop(builder, chunk);
+    backdrop(builder, chunk, level);
     for (const solid of level.solids) {
       if (solid.x < chunk.start || solid.x >= chunk.end) continue;
       if (movingTypes.has(solid.type) || solid.hidden) {
