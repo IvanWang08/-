@@ -26,6 +26,15 @@ export function createEffects(scene) {
     positions[i*3]=x-facing*.35;positions[i*3+1]=y+.75+(i%4)*.11;positions[i*3+2]=.2;
     new THREE.Color(i%2?'#ffd36b':'#8ed8ed').toArray(colors,i*3);geometry.attributes.color.needsUpdate=true;
   }
+  function staffSweep(x,y,facing){
+    for(let j=0;j<18;j++){
+      const i=cursor++%capacity,p=particles[i],angle=(-80+j/17*160)*Math.PI/180,radius=1.3+j%3*.65;
+      p.life=.16+j%4*.018;p.vx=facing*Math.cos(angle)*1.4;p.vy=Math.sin(angle)*1.4;p.vz=(j%2?1:-1)*.08;p.gravity=.4;
+      positions[i*3]=x+facing*Math.cos(angle)*radius;positions[i*3+1]=y+Math.sin(angle)*radius;positions[i*3+2]=.3;
+      new THREE.Color(j%3?'#f7c94c':'#fff2a3').toArray(colors,i*3);
+    }
+    geometry.attributes.color.needsUpdate=true;
+  }
   function update(dt) {
     for(let i=0;i<capacity;i++){
       const p=particles[i];if(p.life<=0)continue;p.life-=dt;
@@ -34,5 +43,5 @@ export function createEffects(scene) {
     }
     geometry.attributes.position.needsUpdate=true;
   }
-  return {burst,trail,update,dispose(){scene.remove(points);geometry.dispose();material.dispose();}};
+  return {burst,trail,staffSweep,update,dispose(){scene.remove(points);geometry.dispose();material.dispose();}};
 }

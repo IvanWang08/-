@@ -58,6 +58,7 @@ function handleEvents(events){
     if(event.type==='land')visual.shake=Math.min(.8,event.impact/25);
     if(event.type==='hurt')visual.shake=1;
     if(event.type==='stomp'){visual.stomp=true;visual.shake=.45;}
+    if(event.type==='attack')effects.staffSweep(event.x,event.y,event.facing);
     if(['coin','stomp','hurt','secret','spring','pipe','doubleJump','strike','attack'].includes(event.type))effects.burst(event.x??simulation.player.x,event.y??simulation.player.y+1,event.type);
   }
 }
