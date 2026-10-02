@@ -2,6 +2,10 @@ import {FIXED_DT,bounds,solidBounds,overlaps,moveBody,findSupport,isSolid} from 
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const approach=(value,target,amount)=>value<target?Math.min(value+amount,target):Math.max(value-amount,target);
+const pointSegmentDistance=(px,py,ax,ay,bx,by)=>{const dx=bx-ax,dy=by-ay,length=dx*dx+dy*dy||1;const t=clamp(((px-ax)*dx+(py-ay)*dy)/length,0,1);return Math.hypot(px-(ax+dx*t),py-(ay+dy*t));};
+function segmentHitsBox(ax,ay,bx,by,box){
+  let near=0,far=1;for(const [start,delta,min,max] of [[ax,bx-ax,box.left,box.right],[ay,by-ay,box.bottom,box.top]]){if(Math.abs(delta)<1e-8){if(start<min||start>max)return false;continue;}const a=(min-start)/delta,b=(max-start)/delta;near=Math.max(near,Math.min(a,b));far=Math.min(far,Math.max(a,b));if(near>far)return false;}return near>0.03&&near<.97;
+}
 export class Simulation {
   constructor(level) { this.level=level; this.reset(); }
   reset() {
@@ -11,7 +15,7 @@ export class Simulation {
     this.mechanisms=this.level.mechanisms.map(m=>({...m,cooldown:0}));
     this.traps=(this.level.traps||[]).map(t=>({...t,active:false,currentX:t.x,currentY:t.y,triggered:false,triggerTime:0}));
     this.player={x:3,y:.02,w:.8,h:1.65,vx:0,vy:0,grounded:false,supportId:null,facing:1,invulnerable:0,
-      jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0,hurtTime:0};
+      jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0,hurtTime:0,attackSerial:0,attackHit:false,attackHits:new Set()};
     this.status='ready'; this.score=0; this.coinsCollected=0; this.lives=3;
     this.elapsed=0; this.checkpointIndex=0; this.region=this.level.regions[0];
     this.events=[]; this.secrets=new Set(); this.coyote=0; this.jumpBuffer=0;
@@ -100,7 +104,7 @@ export class Simulation {
     p.invulnerable=Math.max(0,p.invulnerable-dt);
     p.hurtTime=Math.max(0,p.hurtTime-dt);
     p.dashCooldown=Math.max(0,p.dashCooldown-dt);p.dashTime=Math.max(0,p.dashTime-dt);
-    p.attackCooldown=Math.max(0,p.attackCooldown-dt);p.attackTime=Math.max(0,p.attackTime-dt);
+    p.attackCooldown=Math.max(0,p.attackCooldown-dt);const previousAttackTime=p.attackTime;p.attackTime=Math.max(0,p.attackTime-dt);
     this.pipeCooldown=Math.max(0,this.pipeCooldown-dt);
     this.springCooldown=Math.max(0,this.springCooldown-dt);
     this.updatePlatforms(dt,solids);
@@ -113,7 +117,7 @@ export class Simulation {
     const direction=clamp(input.move??0,-1,1);
     if(direction)p.facing=Math.sign(direction);
     if(input.dashPressed && p.dashCooldown<=0){p.dashTime=.2;p.dashCooldown=1;p.invulnerable=Math.max(p.invulnerable,.26);p.vy=Math.max(p.vy,0);this.emit('dash',{x:p.x,y:p.y+1,facing:p.facing});}
-    if(input.attackPressed && p.attackCooldown<=0){p.attackTime=.24;p.attackCooldown=.4;this.attack();}
+    if(input.attackPressed && p.attackCooldown<=0){p.attackTime=.4;p.attackCooldown=.4;p.attackSerial++;p.attackHit=false;p.attackHits.clear();this.emit('attack',{x:p.x+p.facing*1.1,y:p.y+1,facing:p.facing,hit:false});}
     p.vx=p.dashTime>0?p.facing*18:approach(p.vx,direction*8.2,(p.grounded?62:37)*dt);
     if(this.jumpBuffer>0 && this.coyote>0) {
       p.vy=12; p.grounded=false; p.supportId=null;
@@ -136,6 +140,7 @@ export class Simulation {
       if(floor.type==='crumble' && floor.crumbleTimer===0)floor.crumbleTimer=.65;
     }
     if(p.y<-8 || (p.x>=200 && p.x<300 && p.y<-1.6)) {this.loseLife('fall');return;}
+    this.updateAttackSweep(previousAttackTime);
     this.updateEnemies(dt,previous);
     if(this.status!=='playing' || (previous.x!==p.x && p.invulnerable>1.59))return;
     this.updateTraps(dt);
@@ -193,19 +198,27 @@ export class Simulation {
       }
     }
   }
-  attack(){
-    const p=this.player;let hits=0;
+  updateAttackSweep(previousTime){
+    const p=this.player,duration=.4,activeDuration=duration*2/3;
+    if(previousTime>0&&p.attackTime===0&&!p.attackHit)this.emit('attackMiss',{x:p.x+p.facing*.32,y:p.y+1.08});
+    if(previousTime<=duration-activeDuration||p.attackTime>=duration)return;
+    const progress=clamp((duration-p.attackTime)/activeDuration,0,1),previous=clamp((duration-previousTime)/activeDuration,0,1);
+    const handX=p.x+p.facing*.32,handY=p.y+1.08,solids=this.localSolids();
     for(const e of this.enemies){
-      if(!e.alive)continue;const dx=(e.x-p.x)*p.facing,dy=(e.y+e.h*.5)-(p.y+p.h*.55);
-      const distance=Math.hypot(dx,dy);
-      if(dx<-.2||dx>2.15||distance>2.2||Math.abs(dy)>1.75)continue;
-      e.hp--;e.stompCooldown=.38;e.squash=.3;hits++;
-      if(e.hp<=0){e.alive=false;e.defeatTime=.65;e.knockVx=p.facing*8;e.knockVy=8;this.score+=e.elite?750:250;}
-      else {e.direction=p.facing;e.x+=p.facing*.16;this.score+=100;}
-      this.emit('strike',{x:e.x,y:e.y+e.h*.65,elite:e.elite,hp:e.hp});
+      if(!e.alive||p.attackHits.has(e.id))continue;const ex=e.x,ey=e.y+e.h*.5;
+      let swept=false;for(let sample=0;sample<=3;sample++){
+        const t=previous+(progress-previous)*sample/3,angle=(-80+t*160)*Math.PI/180;
+        const tipX=handX+p.facing*Math.cos(angle)*3,tipY=handY+Math.sin(angle)*3;
+        if(pointSegmentDistance(ex,ey,handX,handY,tipX,tipY)<=Math.max(.58,e.w*.45)){swept=true;break;}
+      }
+      if(!swept||Math.abs(ey-handY)>1.9)continue;
+      const blocked=solids.some(s=>isSolid(s)&&segmentHitsBox(handX,handY,ex,ey,solidBounds(s)));
+      if(blocked)continue;
+      p.attackHits.add(e.id);p.attackHit=true;e.hp--;e.stompCooldown=.38;e.squash=.3;
+      if(e.hp<=0){e.alive=false;e.defeatTime=.65;e.knockVx=p.facing*9;e.knockVy=8;this.score+=e.elite?750:250;}
+      else{e.direction=p.facing;e.x+=p.facing*.22;this.score+=100;}
+      this.emit('strike',{x:e.x,y:e.y+e.h*.65,elite:e.elite,hp:e.hp});this.hitStop=.045;
     }
-    this.emit('attack',{x:p.x+p.facing*1.1,y:p.y+1,facing:p.facing,hit:hits>0});
-    if(hits){this.hitStop=.045;}
   }
   updateTraps(dt){
     const p=this.player,a=bounds(p),time=this.elapsed;

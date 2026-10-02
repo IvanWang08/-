@@ -36,13 +36,27 @@ test('custom bindings expose staff, dash and jump without hard-coded keys',()=>{
 test('staff defeats a normal enemy and needs three separated hits for an elite',()=>{
   const normal=actionSimulation([{id:'normal',x:1.45,y:0,w:.9,h:.85,minX:1,maxX:2,speed:0,hp:1}]);
   normal.step(FIXED_DT,{attackPressed:true});
-  assert.equal(normal.enemies[0].alive,false);assert.ok(normal.hitStop>0);
+  tick(normal,.3);
+  assert.equal(normal.enemies[0].alive,false);assert.equal(normal.player.attackHit,true);
   const elite=actionSimulation([{id:'elite',x:1.5,y:0,w:1.2,h:1.35,minX:1,maxX:2,speed:0,hp:3,elite:true}]);
   for(let hit=0;hit<3;hit++){
     elite.step(FIXED_DT,{attackPressed:true});
-    if(hit<2){assert.equal(elite.enemies[0].alive,true);tick(elite,.5);}
+    tick(elite,.35);
+    if(hit<2){assert.equal(elite.enemies[0].alive,true);tick(elite,.2);}
   }
   assert.equal(elite.enemies[0].alive,false);
+});
+
+test('swept staff hits twenty reasonable poses but never reaches through a wall',()=>{
+  for(let attempt=0;attempt<20;attempt++){
+    const enemy={id:`target-${attempt}`,x:1.25+(attempt%5)*.3,y:.08+Math.floor(attempt/5)*.16,w:.9,h:.85,minX:1,maxX:3,speed:0,hp:1};
+    const sim=actionSimulation([enemy]);sim.step(FIXED_DT,{attackPressed:true});tick(sim,.34);
+    assert.equal(sim.enemies[0].alive,false,`missed pose ${attempt}`);
+  }
+  const blocked=actionSimulation([{id:'blocked',x:1.7,y:0,w:.9,h:.85,minX:1.5,maxX:2,speed:0,hp:1}]);
+  blocked.solids.push({id:'attack-wall',x:1,y:1.5,w:.25,h:3,type:'stone',enabled:true});
+  blocked.step(FIXED_DT,{attackPressed:true});tick(blocked,.4);
+  assert.equal(blocked.enemies[0].alive,true);
 });
 
 test('dash covers its target distance and ignores an active flame hitbox',()=>{
