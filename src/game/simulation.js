@@ -9,7 +9,7 @@ function segmentHitsBox(ax,ay,bx,by,box){
 export class Simulation {
   constructor(level) { this.level=level; this.reset(); }
   reset() {
-    this.solids=this.level.solids.map(s=>({...s,enabled:true,revealed:!s.hidden,crumbleTimer:0,restoreAt:0}));
+    this.solids=this.level.solids.map(s=>({...s,enabled:true,revealed:!s.hidden,crumbleTimer:0,restoreAt:0,previousX:s.x,previousY:s.y}));
     this.coins=this.level.coins.map(c=>({...c,collected:false,revealed:!c.hidden}));
     this.enemies=this.level.enemies.map(e=>({...e,maxHp:e.hp,alive:true,direction:-1,vx:0,vy:0,grounded:false,squash:0,stompCooldown:0}));
     this.mechanisms=this.level.mechanisms.map(m=>({...m,cooldown:0}));
@@ -19,7 +19,7 @@ export class Simulation {
     this.status='ready'; this.score=0; this.coinsCollected=0; this.lives=3;
     this.elapsed=0; this.checkpointIndex=0; this.region=this.level.regions[0];
     this.events=[]; this.secrets=new Set(); this.coyote=0; this.jumpBuffer=0;
-    this.pipeCooldown=0; this.springCooldown=0; this.accumulator=0;this.hitStop=0;
+    this.pipeCooldown=0; this.springCooldown=0; this.accumulator=0;this.renderAlpha=0;this.hitStop=0;
     this.pendingJump=false; this.pendingInteract=false;this.pendingAttack=false;this.pendingDash=false;
   }
   start() { if(this.status==='ready') { this.status='playing'; this.emit('region',{name:this.region.name}); } }
@@ -39,6 +39,7 @@ export class Simulation {
       this.accumulator-=FIXED_DT;
       if(this.status!=='playing') { this.accumulator=0; break; }
     }
+    this.renderAlpha=clamp(this.accumulator/FIXED_DT,0,1);
   }
   localSolids(x=this.player.x) { return this.solids.filter(s=>Math.abs(s.x-x)<s.w/2+28); }
   reveal(secret) {
@@ -74,6 +75,7 @@ export class Simulation {
       }
       if(s.type!=='moving') continue;
       const oldX=s.x,oldY=s.y;
+      s.previousX=oldX;s.previousY=oldY;
       const next=(s.axis==='y'?s.baseY:s.baseX)+Math.sin(this.elapsed*s.speed)*s.range;
       if(s.axis==='y')s.y=next;else s.x=next;
       const dx=s.x-oldX,dy=s.y-oldY;

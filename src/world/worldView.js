@@ -325,6 +325,7 @@ function solidShape(builder, solid) {
   } else if (type === 'wood' || type === 'crumble' || type === 'moving') {
     builder.add('box', 'darkWood', x, y - h * 0.29, -1.3, w, h * 0.35, 0.17);
     builder.add('box', 'darkWood', x, y - h * 0.29, 1.3, w, h * 0.35, 0.17);
+    if(type==='moving')builder.add('box','gold',x,top+0.018,0,w*.88,0.026,2.55);
   }
 }
 
@@ -488,6 +489,7 @@ export function createWorldView(scene, level) {
         const dynamicBuilder = new BatchBuilder(solidGroup, geometry, materials);
         solidShape(dynamicBuilder, { ...solid, x: 0, y: 0 });
         dynamicBuilder.build();
+        if(solid.type==='moving')solidGroup.traverse(object=>{if(object.isMesh)object.castShadow=false;});
         solidGroup.position.set(solid.x, solid.y, 0);
         solidGroup.visible = !solid.hidden && solid.type !== 'hidden';
         dynamicSolids.set(solid.id, solidGroup);
@@ -538,7 +540,10 @@ export function createWorldView(scene, level) {
       const group = dynamicSolids.get(solid.id);
       if (!group) continue;
       group.visible = Math.abs(solid.x - playerX) < 76 && solid.enabled !== false && (!(solid.hidden || solid.type === 'hidden') || solid.revealed);
-      group.position.set(solid.x, solid.y, 0);
+      const alpha=sim.renderAlpha??1;
+      const renderX=solid.type==='moving'?THREE.MathUtils.lerp(solid.previousX??solid.x,solid.x,alpha):solid.x;
+      const renderY=solid.type==='moving'?THREE.MathUtils.lerp(solid.previousY??solid.y,solid.y,alpha):solid.y;
+      group.position.set(renderX, renderY, 0);
       if (solid.type === 'crumble' && solid.timer > 0) group.rotation.z = Math.sin(time * 58) * 0.012;
       else group.rotation.z = 0;
     }
