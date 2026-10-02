@@ -43,12 +43,12 @@ export function journeyInput(sim, driver) {
   };
 }
 
-test('level has four large regions, high routes, paired pipes and a secret in each region', () => {
+test('level has six large regions, high routes, paired pipes and a secret in each region', () => {
   const level = createLevelData();
-  assert.ok(level.length >= 400);
-  assert.equal(level.regions.length, 4);
-  assert.equal(level.checkpoints.length, 4);
-  assert.ok(level.solids.filter(s => s.id.startsWith('route-') && !s.id.endsWith('-end')).length >= 3);
+  assert.ok(level.length >= 800);
+  assert.equal(level.regions.length, 6);
+  assert.equal(level.checkpoints.length, 6);
+  assert.ok(level.solids.filter(s => s.id.startsWith('route-') && !s.id.endsWith('-end')).length >= 6);
   for (const region of level.regions) assert.ok(level.solids.some(s => s.secret === region.id && s.hidden));
   assert.equal(level.mechanisms.filter(m => m.type === 'pipe').length, 4);
   assert.ok(level.solids.every(s => Number.isFinite(s.chunk) && s.w > 0 && s.h > 0));
@@ -65,7 +65,7 @@ for (let run = 1; run <= 3; run++) {
     let hurt = 0;
     const hurtReasons = [];
     let jumps = 0;
-    while (sim.status === 'playing' && totalFrames < 120 * 160) {
+    while (sim.status === 'playing' && totalFrames < 120 * 300) {
       const input = journeyInput(sim, driver);
       sim.step(FIXED_DT, input);
       totalFrames++;
@@ -82,9 +82,9 @@ for (let run = 1; run <= 3; run++) {
       }
     }
     assert.equal(sim.status, 'won', `ended ${sim.status} x=${sim.player.x.toFixed(2)} max=${highestX.toFixed(2)} hurt=${hurt} reasons=${hurtReasons.join(',')} t=${(totalFrames / 120).toFixed(1)}`);
-    assert.equal(regions.size, 4);
-    assert.equal(sim.checkpointIndex, 3);
-    assert.ok(highestX >= 411);
+    assert.equal(regions.size, 6);
+    assert.equal(sim.checkpointIndex, 5);
+    assert.ok(highestX >= 791);
     assert.ok(sim.coinsCollected > 10);
     assert.ok(jumps >= 10);
     assert.ok(sim.lives > 0);

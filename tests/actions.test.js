@@ -5,6 +5,7 @@ import { createLevelData } from '../src/world/levelData.js';
 import { FIXED_DT } from '../src/physics/collision.js';
 import { CAMERA_LOCK } from '../src/scene/createScene.js';
 import { controlState } from '../src/game/controls.js';
+import { Z_LAYERS, groundedY, groundHeightAt } from '../src/world/layers.js';
 
 const floor = { id:'test-floor', x:20, y:-1, w:80, h:2, type:'ground', chunk:0, enabled:true };
 function actionSimulation(enemies=[],traps=[]) {
@@ -86,4 +87,36 @@ test('trap table contains eight mechanisms, previews and five rhythm combination
   assert.ok(new Set(traps.filter(t=>!t.preview).map(t=>t.combo)).size>=5);
   for(const type of new Set(traps.map(t=>t.type)))assert.ok(traps.some(t=>t.type===type&&t.preview),`${type} has no preview`);
   assert.ok(traps.every(t=>Number.isFinite(t.period)&&Number.isFinite(t.chunk)));
+  const live=traps.filter(t=>!t.preview);
+  assert.ok(live.every(t=>t.combo&&t.template&&t.difficulty>=1&&t.difficulty<=6));
+  const combos=Map.groupBy(live,t=>t.combo);
+  for(const [name,beats] of combos)assert.ok(beats.length>=3&&beats.length<=6,`${name} has ${beats.length} beats`);
+  const ordered=[...live].sort((a,b)=>a.x-b.x);
+  for(let i=1;i<ordered.length;i++)assert.ok(ordered[i].difficulty>=ordered[i-1].difficulty,'difficulty must not decrease');
+});
+
+test('decoration layers are ordered and grounding uses the canonical collision table',()=>{
+  assert.ok(Z_LAYERS.farBackground.max<=Z_LAYERS.midDecoration.min);
+  assert.ok(Z_LAYERS.midDecoration.max<=Z_LAYERS.nearDecoration.min);
+  assert.ok(Z_LAYERS.nearDecoration.max<=Z_LAYERS.gameplay.min);
+  assert.ok(Z_LAYERS.gameplay.max<=Z_LAYERS.foreground.min);
+  const level=createLevelData();
+  for(const x of [10,118,232,328,486,688,790]){
+    const y=groundHeightAt(level,x);
+    assert.ok(Number.isFinite(y));
+    assert.ok(Math.abs(groundedY(level,x,.24)-(y+.126))<1e-9);
+  }
+});
+
+test('pursuit rock activates behind the player and advances through its configured interval',()=>{
+  const level=createLevelData(),rock=level.traps.find(t=>t.pursuit);
+  const sim=actionSimulation([], [rock]);
+  sim.level.goal.x=900;
+  Object.assign(sim.solids[0],{x:rock.x,y:-1,w:200,h:2});
+  Object.assign(sim.player,{x:rock.x-2,y:0,supportId:'test-floor'});
+  sim.step(FIXED_DT,{});
+  const started=sim.traps[0].currentX;
+  assert.equal(sim.traps[0].triggered,true);assert.ok(started<sim.player.x);
+  tick(sim,.5);
+  assert.ok(sim.traps[0].currentX>started);assert.ok(sim.traps[0].currentX<=rock.endX);
 });
