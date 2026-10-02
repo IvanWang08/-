@@ -1,4 +1,8 @@
 import {FIXED_DT,bounds,solidBounds,overlaps,moveBody,findSupport,isSolid} from '../physics/collision.js';
+import combatConfig from '../config/combat.json' with {type:'json'};
+import {DamageBus} from '../combat/damageBus.js';
+import {ProjectileSystem} from '../combat/projectileSystem.js';
+import {MushroomBrain} from '../ai/mushroomBrain.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const approach=(value,target,amount)=>value<target?Math.min(value+amount,target):Math.max(value-amount,target);
@@ -7,20 +11,31 @@ function segmentHitsBox(ax,ay,bx,by,box){
   let near=0,far=1;for(const [start,delta,min,max] of [[ax,bx-ax,box.left,box.right],[ay,by-ay,box.bottom,box.top]]){if(Math.abs(delta)<1e-8){if(start<min||start>max)return false;continue;}const a=(min-start)/delta,b=(max-start)/delta;near=Math.max(near,Math.min(a,b));far=Math.min(far,Math.max(a,b));if(near>far)return false;}return near>0.03&&near<.97;
 }
 export class Simulation {
-  constructor(level) { this.level=level; this.reset(); }
+  constructor(level) {
+    this.level=level;this.damageBus=new DamageBus();this.brain=new MushroomBrain();
+    this.projectiles=new ProjectileSystem({damageBus:this.damageBus,emit:(type,data)=>this.emit(type,data)});
+    this.damageBus.subscribe(event=>this.applyDamage(event));this.reset();
+  }
   reset() {
     this.solids=this.level.solids.map(s=>({...s,enabled:true,revealed:!s.hidden,crumbleTimer:0,restoreAt:0,previousX:s.x,previousY:s.y}));
     this.coins=this.level.coins.map(c=>({...c,collected:false,revealed:!c.hidden}));
-    this.enemies=this.level.enemies.map(e=>({...e,maxHp:e.hp,alive:true,direction:-1,vx:0,vy:0,grounded:false,squash:0,stompCooldown:0}));
+    this.enemies=this.level.enemies.map(e=>{const config=combatConfig.enemies[e.type]??{};const hp=e.hp??config.health??1;return{...config,...e,hp,maxHp:hp,alive:true,direction:-1,vx:0,vy:0,grounded:false,squash:0,stompCooldown:0,aiState:'patrol',stateTime:0,hitTime:0,slowFactor:1};});
     this.mechanisms=this.level.mechanisms.map(m=>({...m,cooldown:0}));
     this.traps=(this.level.traps||[]).map(t=>({...t,active:false,currentX:t.x,currentY:t.y,triggered:false,triggerTime:0}));
     this.player={x:3,y:.02,w:.8,h:1.65,vx:0,vy:0,grounded:false,supportId:null,facing:1,invulnerable:0,
-      jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0,hurtTime:0,attackSerial:0,attackHit:false,attackHits:new Set()};
+      jumpsUsed:0,dashTime:0,dashCooldown:0,attackTime:0,attackCooldown:0,hurtTime:0,attackSerial:0,attackHit:false,attackHits:new Set(),comboStep:0,comboTimer:0,skillCooldown:0};
+    this.projectiles.reset();
     this.status='ready'; this.score=0; this.coinsCollected=0; this.lives=3;
     this.elapsed=0; this.checkpointIndex=0; this.region=this.level.regions[0];
     this.events=[]; this.secrets=new Set(); this.coyote=0; this.jumpBuffer=0;
     this.pipeCooldown=0; this.springCooldown=0; this.accumulator=0;this.renderAlpha=0;this.hitStop=0;
     this.pendingJump=false; this.pendingInteract=false;this.pendingAttack=false;this.pendingDash=false;
+  }
+  applyDamage({targetId,amount=1,source,x,y}){
+    const enemy=this.enemies.find(item=>item.id===targetId);if(!enemy||!enemy.alive)return;
+    enemy.hp-=amount;enemy.hitTime=.28;enemy.squash=.22;enemy.stompCooldown=.3;
+    if(enemy.hp<=0){enemy.alive=false;enemy.aiState='death';enemy.defeatTime=.72;enemy.knockVx=this.player.facing*7;enemy.knockVy=6;this.score+=combatConfig.enemies[enemy.type]?.drop??(enemy.elite?750:250);this.emit('enemyShatter',{x:enemy.x,y:enemy.y+enemy.h*.5,source});}
+    else this.emit('strike',{x:x??enemy.x,y:y??enemy.y+enemy.h*.6,hp:enemy.hp,source});
   }
   start() { if(this.status==='ready') { this.status='playing'; this.emit('region',{name:this.region.name}); } }
   emit(type,data={}) { this.events.push({type,...data}); }
@@ -106,7 +121,7 @@ export class Simulation {
     p.invulnerable=Math.max(0,p.invulnerable-dt);
     p.hurtTime=Math.max(0,p.hurtTime-dt);
     p.dashCooldown=Math.max(0,p.dashCooldown-dt);p.dashTime=Math.max(0,p.dashTime-dt);
-    p.attackCooldown=Math.max(0,p.attackCooldown-dt);const previousAttackTime=p.attackTime;p.attackTime=Math.max(0,p.attackTime-dt);
+    p.attackCooldown=Math.max(0,p.attackCooldown-dt);p.comboTimer=Math.max(0,p.comboTimer-dt);p.skillCooldown=Math.max(0,p.skillCooldown-dt);const previousAttackTime=p.attackTime;p.attackTime=Math.max(0,p.attackTime-dt);
     this.pipeCooldown=Math.max(0,this.pipeCooldown-dt);
     this.springCooldown=Math.max(0,this.springCooldown-dt);
     this.updatePlatforms(dt,solids);
@@ -119,7 +134,8 @@ export class Simulation {
     const direction=clamp(input.move??0,-1,1);
     if(direction)p.facing=Math.sign(direction);
     if(input.dashPressed && p.dashCooldown<=0){p.dashTime=.2;p.dashCooldown=1;p.invulnerable=Math.max(p.invulnerable,.26);p.vy=Math.max(p.vy,0);this.emit('dash',{x:p.x,y:p.y+1,facing:p.facing});}
-    if(input.attackPressed && p.attackCooldown<=0){p.attackTime=.4;p.attackCooldown=.4;p.attackSerial++;p.attackHit=false;p.attackHits.clear();this.emit('attack',{x:p.x+p.facing*1.1,y:p.y+1,facing:p.facing,hit:false});}
+    if(input.attackPressed && p.attackCooldown<=0){p.comboStep=p.comboTimer>0?p.comboStep%3+1:1;p.comboTimer=combatConfig.sword.comboWindow;p.attackTime=combatConfig.sword.attackDuration;p.attackCooldown=.24;p.attackSerial++;p.attackHit=false;p.attackHits.clear();this.emit('attack',{x:p.x+p.facing*1.1,y:p.y+1,facing:p.facing,combo:p.comboStep});if(p.comboStep===3)this.projectiles.spawnWave({x:p.x+p.facing*.8,y:p.y+1,direction:p.facing,config:combatConfig.sword.wave});}
+    if(input.skillPressed&&p.skillCooldown<=0){p.skillCooldown=combatConfig.swordField.cooldown;p.invulnerable=Math.max(p.invulnerable,.22);this.projectiles.spawnFan(p,combatConfig.swordField);}
     p.vx=p.dashTime>0?p.facing*18:approach(p.vx,direction*8.2,(p.grounded?62:37)*dt);
     if(this.jumpBuffer>0 && this.coyote>0) {
       p.vy=12; p.grounded=false; p.supportId=null;
@@ -144,6 +160,7 @@ export class Simulation {
     if(p.y<-8 || (p.x>=200 && p.x<300 && p.y<-1.6)) {this.loseLife('fall');return;}
     this.updateAttackSweep(previousAttackTime);
     this.updateEnemies(dt,previous);
+    this.projectiles.update(dt,this.enemies);
     if(this.status!=='playing' || (previous.x!==p.x && p.invulnerable>1.59))return;
     this.updateTraps(dt);
     if(this.status!=='playing' || p.invulnerable>1.59)return;
@@ -174,7 +191,8 @@ export class Simulation {
       if(!e.alive){if(e.defeatTime>0){e.defeatTime-=dt;e.x+=e.knockVx*dt;e.y+=e.knockVy*dt;e.knockVy-=20*dt;}continue;}
       if(Math.abs(e.x-p.x)>38)continue;
       const solids=this.localSolids(e.x);
-      e.vx=e.direction*e.speed;
+      const command=this.brain.update(e,p,dt);e.vx=e.direction*(command.speed??e.speed);
+      if(command.hop)e.vy=5.8;
       e.vy=Math.max(-42,e.vy-21*dt);
       const hit=moveBody(e,e.vx*dt,e.vy*dt,solids,{stepHeight:.32});
       e.grounded=hit.landed;e.supportId=hit.supportId;
@@ -191,9 +209,8 @@ export class Simulation {
       const stomp=acrossX && previous.vy<0 && previous.y>=b.top-.08 && p.y<=b.top+.02;
       if(stomp && e.stompCooldown<=0) {
         p.y=b.top+.01;p.vy=10.2;p.grounded=false;p.supportId=null;
-        this.springCooldown=.25;e.hp--;e.squash=.28;e.stompCooldown=.4;
-        if(e.hp<=0){e.alive=false;e.defeatTime=.55;e.knockVx=0;e.knockVy=4;this.score+=e.elite?750:250;}
-        else {e.direction=p.x<e.x?1:-1;this.score+=100;}
+        this.springCooldown=.25;this.damageBus.emit({targetId:e.id,amount:1,source:'stomp',x:e.x,y:b.top});
+        if(e.alive){e.direction=p.x<e.x?1:-1;this.score+=100;}
         this.emit('stomp',{x:e.x,y:b.top,elite:e.elite,hp:e.hp});
       } else if(overlaps(a,b) && p.invulnerable<=0 && e.stompCooldown<=0) {
         this.damagePlayer('enemy',e);return;
@@ -201,7 +218,7 @@ export class Simulation {
     }
   }
   updateAttackSweep(previousTime){
-    const p=this.player,duration=.4,activeDuration=duration*2/3;
+    const p=this.player,duration=combatConfig.sword.attackDuration,activeDuration=duration*2/3;
     if(previousTime>0&&p.attackTime===0&&!p.attackHit)this.emit('attackMiss',{x:p.x+p.facing*.32,y:p.y+1.08});
     if(previousTime<=duration-activeDuration||p.attackTime>=duration)return;
     const progress=clamp((duration-p.attackTime)/activeDuration,0,1),previous=clamp((duration-previousTime)/activeDuration,0,1);
@@ -210,16 +227,14 @@ export class Simulation {
       if(!e.alive||p.attackHits.has(e.id))continue;const ex=e.x,ey=e.y+e.h*.5;
       let swept=false;for(let sample=0;sample<=3;sample++){
         const t=previous+(progress-previous)*sample/3,angle=(-80+t*160)*Math.PI/180;
-        const tipX=handX+p.facing*Math.cos(angle)*3,tipY=handY+Math.sin(angle)*3;
+        const tipX=handX+p.facing*Math.cos(angle)*combatConfig.sword.meleeRadius,tipY=handY+Math.sin(angle)*combatConfig.sword.meleeRadius;
         if(pointSegmentDistance(ex,ey,handX,handY,tipX,tipY)<=Math.max(.58,e.w*.45)){swept=true;break;}
       }
       if(!swept||Math.abs(ey-handY)>1.9)continue;
       const blocked=solids.some(s=>isSolid(s)&&segmentHitsBox(handX,handY,ex,ey,solidBounds(s)));
       if(blocked)continue;
-      p.attackHits.add(e.id);p.attackHit=true;e.hp--;e.stompCooldown=.38;e.squash=.3;
-      if(e.hp<=0){e.alive=false;e.defeatTime=.65;e.knockVx=p.facing*9;e.knockVy=8;this.score+=e.elite?750:250;}
-      else{e.direction=p.facing;e.x+=p.facing*.22;this.score+=100;}
-      this.emit('strike',{x:e.x,y:e.y+e.h*.65,elite:e.elite,hp:e.hp});this.hitStop=.045;
+      p.attackHits.add(e.id);p.attackHit=true;this.damageBus.emit({targetId:e.id,amount:combatConfig.sword.meleeDamage[p.comboStep-1]??1,source:`sword-combo-${p.comboStep}`,x:e.x,y:e.y+e.h*.65});
+      if(e.alive){e.direction=p.facing;e.x+=p.facing*.22;this.score+=100;}this.hitStop=.045;
     }
   }
   updateTraps(dt){
