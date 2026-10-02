@@ -1,0 +1,9 @@
+Original Xiake rig and animations
+Copyright (c) 2026 this project contributors
+
+Dedicated to the public domain under CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Generated from original geometry and animation data in
+scripts/generate-original-hero.mjs. It contains no extracted or copied assets
+from Black Myth: Wukong, Super Mario, or any other commercial game.
