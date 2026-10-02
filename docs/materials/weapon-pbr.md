@@ -2,6 +2,8 @@
 
 该贴图组由项目内原创描述生成，并经过技术通道整理；未使用或解包任何商业游戏资产。纹样只借用通用的中国传统云雷、流水、蟠龙和编绳语汇。
 
+![材质参数总览](weapon-pbr-card.png)
+
 ## BaseColor
 
 ![BaseColor](../../assets/textures/weapons/mythic-metal-basecolor.png)
