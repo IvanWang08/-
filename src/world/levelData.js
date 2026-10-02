@@ -4,11 +4,13 @@ export const REGIONS = [
   { id: 'bamboo', name: '青竹林', subtitle: '竹影初行', start: 0, end: 100 },
   { id: 'village', name: '山间村', subtitle: '檐上人家', start: 100, end: 200 },
   { id: 'water', name: '水桥渡', subtitle: '一苇渡江', start: 200, end: 300 },
-  { id: 'palace', name: '宫门前', subtitle: '长路归城', start: 300, end: 428 },
+  { id: 'palace', name: '宫门前', subtitle: '长路归城', start: 300, end: 400 },
+  { id: 'grotto', name: '石窟栈道', subtitle: '万仞慈航', start: 400, end: 600 },
+  { id: 'sky', name: '云海天宫', subtitle: '踏云问天', start: 600, end: 800 },
 ];
 
 export function createLevelData() {
-  const chunks = Array.from({ length: 18 }, (_, id) => ({
+  const chunks = Array.from({ length: 32 }, (_, id) => ({
     id, start: id * 25, end: (id + 1) * 25,
     theme: REGIONS.find((r) => id * 25 < r.end)?.id ?? 'palace',
   }));
@@ -26,7 +28,8 @@ export function createLevelData() {
   }
   // Short gaps on the low route; every section also offers a rewarded high route.
   const groundRuns = [[-8,47],[50,91],[94,142],[145,190],[193,218],
-    [221,243],[245,267],[269,292],[294,341],[344,380],[383,428]];
+    [221,243],[245,267],[269,292],[294,341],[344,380],[383,430],
+    [433,468],[471,512],[515,558],[561,598],[601,632],[635,672],[675,711],[714,752],[755,800]];
   groundRuns.forEach(([start,end], run) => {
     // Split long land masses so a single nearby chunk never loads the whole map.
     for (let x = start; x < end; x += 12) {
@@ -85,13 +88,20 @@ export function createLevelData() {
   trap('palace-flame','flame',337,0,'palace-courtyard',{period:2.5,phase:.62,h:2.5});
   trap('palace-flying','flyingBlade',362,1.25,'palace-sprint',{period:1.8,range:2.4});
   trap('palace-rock','rollingRock',370,.55,'palace-sprint',{period:2.8,range:5.5});
-  // Low stone stairs: automatic step-up is limited to 0.32 world units.
-  for (let i=0;i<4;i++) solid(`stair-${i}`,393+i*1.1,(i+1)*.28,1.1,(i+1)*.28,'stone');
-  solid('palace-dais',404,1.12,17,1.12,'stone');
-  enemies.push({id:'elite',x:405,y:1.12,w:1.55,h:1.6,minX:400,maxX:408,speed:1.65,hp:3,elite:true,chunk:16});
+  // Palace finale, followed by the cave's slowly breathing Buddha palms.
+  for(let i=0;i<4;i++)solid(`stair-${i}`,383+i*1.1,(i+1)*.28,1.1,(i+1)*.28,'stone');
+  solid('palace-dais',393,1.12,13,1.12,'stone');
+  enemies.push({id:'elite-palace',x:393,y:1.12,w:1.55,h:1.6,minX:389,maxX:397,speed:1.65,hp:3,elite:true,chunk:15});
+  solid('buddha-palm-low',468,2.2,6.5,.72,'moving',{baseX:468,baseY:1.84,range:1.3,speed:.36,axis:'y'});
+  solid('buddha-palm-high',535,4.1,7.2,.72,'moving',{baseX:535,baseY:3.74,range:2.1,speed:.3,axis:'x'});
+  solid('grotto-ledger',575,5.2,11,.7,'stone');
+  // Cloud steps climb toward the golden South Heaven Gate.
+  for(let i=0;i<7;i++)solid(`cloud-step-${i}`,690+i*5,1.1+i*.68,4.2,.5,'stone');
+  solid('sky-final-dais',785,2.2,27,1.2,'stone');
+  enemies.push({id:'elite-sky',x:775,y:0,w:1.55,h:1.6,minX:770,maxX:780,speed:1.9,hp:3,elite:true,chunk:31});
   return {
-    length:420, regions:REGIONS.map(r=>({...r})), chunks, solids, coins, enemies, mechanisms, traps,
+    length:800, regions:REGIONS.map(r=>({...r})), chunks, solids, coins, enemies, mechanisms, traps,
     checkpoints:REGIONS.map((r,i)=>({id:`checkpoint-${i}`,x:r.start+3,y:0,name:r.name})),
-    goal:{x:412,y:1.12},
+    goal:{x:792,y:2.2},
   };
 }

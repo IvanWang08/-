@@ -5,7 +5,7 @@ import {groundedY,Z_LAYERS} from './layers.js';
 const UP = new THREE.Vector3(0, 1, 0);
 const TEMP = new THREE.Object3D();
 const COLORS = { bamboo: '#64836a', village: '#ac946e', water: '#7b9280', palace: '#9b9d8a' };
-const themeAt = (x) => x < 100 ? 'bamboo' : x < 200 ? 'village' : x < 300 ? 'water' : 'palace';
+const themeAt = (x) => x < 100 ? 'bamboo' : x < 200 ? 'village' : x < 300 ? 'water' : x < 400 ? 'palace' : x < 600 ? 'grotto' : 'sky';
 const hash = (value) => {
   let result = 2166136261;
   for (const char of String(value)) result = Math.imul(result ^ char.charCodeAt(0), 16777619);
@@ -246,6 +246,19 @@ function ceremonialSet(builder, chunk, theme) {
   }
 }
 
+function buddhaRelief(builder,x,z,scale=1){
+  builder.add('sphere','stone',x,6.2*scale,z,3.5*scale,4.5*scale,1.25*scale);
+  builder.add('sphere','paleStone',x,9.1*scale,z+.15,1.55*scale,1.75*scale,.8*scale);
+  for(let i=0;i<14;i++){const angle=i/14*Math.PI*2;builder.add('sphere','gold',x+Math.cos(angle)*1.8*scale,9.3*scale+Math.sin(angle)*1.8*scale,z+.25,.22*scale,.22*scale,.16*scale);}
+  for(const side of [-1,1])builder.add('sphere','stone',x+side*3.1*scale,5.1*scale,z+.25,2.6*scale,.75*scale,.65*scale,0,0,side*.22);
+}
+
+function cloudIsland(builder,x,y,z,scale=1){
+  builder.add('rock','paleStone',x,y,z,5.5*scale,1.5*scale,4*scale,0,.3,0);
+  for(let i=0;i<5;i++)builder.add('sphere','ivory',x+(i-2)*1.25*scale,y+.55*scale,z+(i%2-.5)*.8,2.4*scale,.75*scale,1.5*scale);
+  builder.add('rock','mountain',x,y-2.2*scale,z,3.8*scale,4.5*scale,3.2*scale);
+}
+
 function backdrop(builder, chunk, level) {
   const random = randomGenerator(hash(chunk.id));
   const center = (chunk.start + chunk.end) / 2;
@@ -291,10 +304,19 @@ function backdrop(builder, chunk, level) {
         builder.add('sphere', 'wood', x + j * 0.14, height - 0.7, z, 0.08, 0.37, 0.08);
       }
     }
-  } else {
+  } else if (theme === 'palace') {
     building(builder, center, -12, 16, 6.3, true);
     for (let j = 0; j < 4; j++) stoneLamp(builder, chunk.start + 3 + j * 6, -3.7);
     for (let i = 0; i < 6; i++) bamboo(builder, random, chunk.start + random() * 25, -6.5 - random() * 3, 4.5 + random() * 2);
+  } else if(theme==='grotto'){
+    builder.add('rock','mountain',center,6,-15,24,17,13,0,.2,0);
+    if(chunk.id%2===0)buddhaRelief(builder,center,-7,chunk.id%4===0?1.15:.82);
+    for(let i=0;i<7;i++)stoneLamp(builder,chunk.start+2+i*3.4,-3.6);
+    builder.add('box','darkWood',center,.6,-4.8,22,.28,1.4);
+  } else {
+    for(let i=0;i<3;i++)cloudIsland(builder,chunk.start+4+i*8,3+random()*4,-10-random()*9,.65+random()*.35);
+    if(chunk.id%3===0)pavilion(builder,center,-9,4.2,5.5);
+    lanternString(builder,center,6.5,-4.5,7,1.45);
   }
   ceremonialSet(builder, chunk, theme);
   // Low silhouettes keep the camera-facing edge readable instead of occluding it.
@@ -398,7 +420,7 @@ function goalView(goal, geometry, materials) {
   builder.add('roof', 'roof', x, y + 5.95, 0, 7.5, 1.5, 3, 0, Math.PI / 2);
   builder.add('box', 'ink', x - 0.32, y + 5.5, 0, 0.13, 0.7, 2.5);
   builder.build();
-  const title = new THREE.Mesh(new THREE.PlaneGeometry(2.15, 0.58), makeTextLabel('长乐未央'));
+  const title = new THREE.Mesh(new THREE.PlaneGeometry(2.15, 0.58), makeTextLabel(goal.x>600?'南天门':'长乐未央'));
   title.position.set(x - 0.395, y + 5.5, 0);
   title.rotation.y = -Math.PI / 2;
   group.add(title);
