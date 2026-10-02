@@ -16,7 +16,9 @@ export function createScene(container) {
   renderer.setClearColor(0x9fd8ee);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Three r186 removed PCFSoftShadowMap and falls back with a console warning.
+  // PCFShadowMap is the supported filtered shadow path in this release.
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.26;

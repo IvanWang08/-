@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createWorldMaterials } from './materials.js';
-import {groundedY,Z_LAYERS} from './layers.js';
+import {groundedY,groundHeightAt,Z_LAYERS} from './layers.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const TEMP = new THREE.Object3D();
