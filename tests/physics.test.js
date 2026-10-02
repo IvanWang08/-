@@ -195,15 +195,15 @@ test('enemies turn at walls and support edges without entering solid geometry', 
 test('checkpoint respawn, game over and restart preserve life/score invariants', () => {
   const sim = new Simulation(createLevelData());
   sim.start();
-  Object.assign(sim.player, { x: 204, y: 0 });
+  Object.assign(sim.player, { x: 55, y: .2 });
   sim.step(FIXED_DT, {});
-  assert.equal(sim.checkpointIndex, 2);
+  assert.equal(sim.checkpointIndex, 1);
   sim.score = 500; sim.coinsCollected = 5;
   Object.assign(sim.player, { y: -9 });
   sim.step(FIXED_DT, {});
   assert.equal(sim.lives, 2);
-  near(sim.player.x, 203);
-  near(sim.player.y, .02);
+  near(sim.player.x, 54);
+  near(sim.player.y, .22);
   assert.equal(sim.score, 500);
   sim.loseLife('test'); sim.loseLife('test'); sim.loseLife('test');
   assert.equal(sim.status, 'gameOver');
@@ -218,23 +218,11 @@ test('checkpoint respawn, game over and restart preserve life/score invariants',
   assert.ok(sim.enemies.every(e => e.alive && e.hp === e.maxHp));
 });
 
-test('paired pipes need deliberate interaction and cannot immediately loop', () => {
-  const sim = new Simulation(createLevelData());
-  sim.start();
-  Object.assign(sim.player, { x: 138, y: 0 });
-  sim.step(FIXED_DT, {});
-  near(sim.player.x, 138);
-  sim.step(FIXED_DT, { interactPressed: true });
-  near(sim.player.x, 163);
-  assert.equal(sim.secrets.has('village'), true);
-  clearOfSolids(sim.player, sim.solids);
-  Object.assign(sim.player, { x: 168, y: 4.2 });
-  sim.step(FIXED_DT, { interactPressed: true });
-  near(sim.player.x, 168);
-  for (let i = 0; i < 121; i++) sim.step(FIXED_DT, {});
-  sim.step(FIXED_DT, { interactPressed: true });
-  near(sim.player.x, 135);
-  clearOfSolids(sim.player, sim.solids);
+test('premium slice removes pipes, springs and passive filler mechanisms', () => {
+  const level=createLevelData();
+  assert.equal(level.mechanisms.length,0);
+  assert.equal(level.solids.some(s=>s.id.startsWith('route-')||s.id.startsWith('spring-')),false);
+  assert.equal(level.enemies.some(e=>e.id.startsWith('goomba-')),false);
 });
 
 test('crumbling platforms disappear, do not restore through actors, then recover', () => {

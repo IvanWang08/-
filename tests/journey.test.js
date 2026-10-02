@@ -20,6 +20,7 @@ export function journeyInput(sim, driver) {
   const enemy = sim.enemies.some(e => e.alive && e.x > p.x - .2 && e.x < p.x + 3.8 && e.y + e.h > p.y - .2 && e.y < p.y + 2.8);
   const danger = sim.traps.some(t => {
     if (t.preview) return false;
+    if (t.type === 'pendulum') return false;
     const positions = [t.x, t.currentX ?? t.x];
     return positions.some(x => x > p.x - .6 && x < p.x + 6.2);
   });
@@ -40,17 +41,18 @@ export function journeyInput(sim, driver) {
     jumpPressed: jump,
     dashPressed: dashDanger && p.dashCooldown <= 0,
     attackPressed: attackTarget && p.attackCooldown <= 0,
+    skillPressed: attackTarget && p.skillCooldown <= 0,
   };
 }
 
-test('level has six large regions, high routes, paired pipes and a secret in each region', () => {
+test('level is one 60–100 metre premium slice without filler mechanisms', () => {
   const level = createLevelData();
-  assert.ok(level.length >= 800);
-  assert.equal(level.regions.length, 6);
-  assert.equal(level.checkpoints.length, 6);
-  assert.ok(level.solids.filter(s => s.id.startsWith('route-') && !s.id.endsWith('-end')).length >= 6);
-  for (const region of level.regions) assert.ok(level.solids.some(s => s.secret === region.id && s.hidden));
-  assert.equal(level.mechanisms.filter(m => m.type === 'pipe').length, 4);
+  assert.ok(level.length >= 60 && level.length <= 100);
+  assert.equal(level.regions.length, 1);
+  assert.equal(level.checkpoints.length, 2);
+  assert.equal(level.mechanisms.length,0);
+  assert.equal(level.roadSpline.length,7);
+  assert.equal(level.enemies.every(e=>e.type==='mushroom-melee'),true);
   assert.ok(level.solids.every(s => Number.isFinite(s.chunk) && s.w > 0 && s.h > 0));
 });
 
@@ -65,7 +67,7 @@ for (let run = 1; run <= 3; run++) {
     let hurt = 0;
     const hurtReasons = [];
     let jumps = 0;
-    while (sim.status === 'playing' && totalFrames < 120 * 300) {
+    while (sim.status === 'playing' && totalFrames < 120 * 90) {
       const input = journeyInput(sim, driver);
       sim.step(FIXED_DT, input);
       totalFrames++;
@@ -82,11 +84,11 @@ for (let run = 1; run <= 3; run++) {
       }
     }
     assert.equal(sim.status, 'won', `ended ${sim.status} x=${sim.player.x.toFixed(2)} max=${highestX.toFixed(2)} hurt=${hurt} reasons=${hurtReasons.join(',')} t=${(totalFrames / 120).toFixed(1)}`);
-    assert.equal(regions.size, 6);
-    assert.equal(sim.checkpointIndex, 5);
-    assert.ok(highestX >= 791);
-    assert.ok(sim.coinsCollected > 10);
-    assert.ok(jumps >= 10);
+    assert.equal(regions.size, 1);
+    assert.equal(sim.checkpointIndex, 1);
+    assert.ok(highestX >= 91);
+    assert.ok(sim.coinsCollected >= 4);
+    assert.ok(jumps >= 4);
     assert.ok(sim.lives > 0);
     assert.ok(sim.score >= sim.coinsCollected * 100 + 1000);
   });

@@ -27,14 +27,14 @@ test('camera pose stays in the requested shallow side-view range',()=>{
   assert.equal(Object.isFrozen(CAMERA_LOCK),true);
 });
 
-test('custom bindings expose staff, dash and jump without hard-coded keys',()=>{
-  const bindings={left:['KeyQ'],right:['KeyE'],jump:['KeyI'],interact:['KeyO'],attack:['KeyU'],dash:['KeyP']};
-  assert.deepEqual(controlState(new Set(['KeyE','KeyI']),new Set(['KeyU','KeyP']),bindings),{
-    move:1,jumpHeld:true,jumpPressed:false,interactPressed:false,attackPressed:true,dashPressed:true,
+test('custom bindings expose sword, skill, dash and jump without hard-coded keys',()=>{
+  const bindings={left:['KeyQ'],right:['KeyE'],jump:['KeyI'],interact:['KeyO'],attack:['KeyU'],skill:['KeyY'],dash:['KeyP']};
+  assert.deepEqual(controlState(new Set(['KeyE','KeyI']),new Set(['KeyU','KeyY','KeyP']),bindings),{
+    move:1,jumpHeld:true,jumpPressed:false,interactPressed:false,attackPressed:true,skillPressed:true,dashPressed:true,
   });
 });
 
-test('staff defeats a normal enemy and needs three separated hits for an elite',()=>{
+test('sword defeats a normal enemy and needs three separated hits for an elite',()=>{
   const normal=actionSimulation([{id:'normal',x:1.45,y:0,w:.9,h:.85,minX:1,maxX:2,speed:0,hp:1}]);
   normal.step(FIXED_DT,{attackPressed:true});
   tick(normal,.3);
@@ -48,7 +48,7 @@ test('staff defeats a normal enemy and needs three separated hits for an elite',
   assert.equal(elite.enemies[0].alive,false);
 });
 
-test('swept staff hits twenty reasonable poses but never reaches through a wall',()=>{
+test('swept sword hits twenty reasonable poses but never reaches through a wall',()=>{
   for(let attempt=0;attempt<20;attempt++){
     const enemy={id:`target-${attempt}`,x:1.25+(attempt%5)*.3,y:.08+Math.floor(attempt/5)*.16,w:.9,h:.85,minX:1,maxX:3,speed:0,hp:1};
     const sim=actionSimulation([enemy]);sim.step(FIXED_DT,{attackPressed:true});tick(sim,.34);
@@ -81,14 +81,13 @@ test('double jump fires once in air and resets only after landing',()=>{
   assert.equal(sim.player.grounded,true);assert.equal(sim.player.jumpsUsed,0);
 });
 
-test('trap table contains eight mechanisms, previews and five rhythm combinations',()=>{
+test('premium slice contains only telegraphed rhythm combinations',()=>{
   const traps=createLevelData().traps;
-  assert.ok(new Set(traps.map(t=>t.type)).size>=8);
-  assert.ok(new Set(traps.filter(t=>!t.preview).map(t=>t.combo)).size>=5);
-  for(const type of new Set(traps.map(t=>t.type)))assert.ok(traps.some(t=>t.type===type&&t.preview),`${type} has no preview`);
+  assert.ok(new Set(traps.map(t=>t.type)).size>=5);
+  assert.equal(new Set(traps.map(t=>t.combo)).size,4);
   assert.ok(traps.every(t=>Number.isFinite(t.period)&&Number.isFinite(t.chunk)));
   const live=traps.filter(t=>!t.preview);
-  assert.ok(live.every(t=>t.combo&&t.template&&t.difficulty>=1&&t.difficulty<=6));
+  assert.ok(live.every(t=>t.combo&&t.template&&t.telegraph>=.6&&t.difficulty>=1&&t.difficulty<=4));
   const combos=Map.groupBy(live,t=>t.combo);
   for(const [name,beats] of combos)assert.ok(beats.length>=3&&beats.length<=6,`${name} has ${beats.length} beats`);
   const ordered=[...live].sort((a,b)=>a.x-b.x);
@@ -101,11 +100,19 @@ test('decoration layers are ordered and grounding uses the canonical collision t
   assert.ok(Z_LAYERS.nearDecoration.max<=Z_LAYERS.gameplay.min);
   assert.ok(Z_LAYERS.gameplay.max<=Z_LAYERS.foreground.min);
   const level=createLevelData();
-  for(const x of [10,118,232,328,486,688,790]){
+  for(const x of [5,25,45,65,83,91]){
     const y=groundHeightAt(level,x);
     assert.ok(Number.isFinite(y));
     assert.ok(Math.abs(groundedY(level,x,.24)-(y+.126))<1e-9);
   }
+});
+
+test('third sword strike launches a projectile and sword field is cooldown driven',()=>{
+  const sim=actionSimulation([{id:'target',type:'mushroom-melee',x:8,y:0,w:1,h:1,minX:7,maxX:9,speed:0,hp:6}]);
+  for(let i=0;i<3;i++){sim.step(FIXED_DT,{attackPressed:true});tick(sim,.3);}
+  assert.ok(sim.projectiles.projectiles.length>0);
+  sim.step(FIXED_DT,{skillPressed:true});
+  assert.equal(sim.projectiles.projectiles.length,6);assert.ok(sim.player.skillCooldown>7);
 });
 
 test('pursuit rock activates behind the player and advances through its configured interval',()=>{
